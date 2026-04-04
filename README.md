@@ -1,9 +1,9 @@
-# CrossPoint Reader
+# Biscuit Reader
 
 Firmware for the **Xteink X4** e-paper display reader (unaffiliated with Xteink).
 Built using **PlatformIO** and targeting the **ESP32-C3** microcontroller.
 
-CrossPoint Reader is a purpose-built firmware designed to be a drop-in, fully open-source replacement for the official 
+Biscuit Reader is a purpose-built firmware designed to be a drop-in, fully open-source replacement for the official
 Xteink firmware. It aims to match or improve upon the standard EPUB reading experience.
 
 ![](./docs/images/cover.jpg)
@@ -12,10 +12,10 @@ Xteink firmware. It aims to match or improve upon the standard EPUB reading expe
 
 E-paper devices are fantastic for reading, but most commercially available readers are closed systems with limited 
 customisation. The **Xteink X4** is an affordable, e-paper device, however the official firmware remains closed.
-CrossPoint exists partly as a fun side-project and partly to open up the ecosystem and truely unlock the device's
+Biscuit exists partly as a fun side-project and partly to open up the ecosystem and truely unlock the device's
 potential.
 
-CrossPoint Reader aims to:
+Biscuit Reader aims to:
 * Provide a **fully open-source alternative** to the official firmware.
 * Offer a **document reader** capable of handling EPUB content on constrained hardware.
 * Support **customisable font, layout, and display** options.
@@ -44,7 +44,7 @@ This project is **not affiliated with Xteink**; it's built as a community projec
 
 Multi-language support: Read EPUBs in various languages, including English, Spanish, French, German, Italian, Portuguese, Russian, Ukrainian, Polish, Swedish, Norwegian, [and more](./USER_GUIDE.md#supported-languages).
 
-See [the user guide](./USER_GUIDE.md) for instructions on operating CrossPoint, including the
+See [the user guide](./USER_GUIDE.md) for instructions on operating Biscuit, including the
 [KOReader Sync quick setup](./USER_GUIDE.md#365-koreader-sync-quick-setup).
 
 For more details about the scope of the project, see the [SCOPE.md](SCOPE.md) document.
@@ -54,7 +54,7 @@ For more details about the scope of the project, see the [SCOPE.md](SCOPE.md) do
 ### Web (latest firmware)
 
 1. Connect your Xteink X4 to your computer via USB-C and wake/unlock the device
-2. Go to https://xteink.dve.al/ and click "Flash CrossPoint firmware"
+2. Go to https://xteink.dve.al/ and click "Flash Biscuit firmware"
 
 To revert back to the official firmware, you can flash the latest official firmware from https://xteink.dve.al/, or swap
 back to the other partition using the "Swap boot partition" button here https://xteink.dve.al/debug.
@@ -83,7 +83,7 @@ See [Development](#development) below.
 
 ### Checking out the code
 
-CrossPoint uses PlatformIO for building and flashing the firmware. To get started, clone the repository:
+Biscuit uses PlatformIO for building and flashing the firmware. To get started, clone the repository:
 
 ```
 git clone --recursive https://github.com/crosspoint-reader/crosspoint-reader
@@ -121,7 +121,7 @@ Minor adjustments may be required for Windows.
 
 ## Internals
 
-CrossPoint Reader is pretty aggressive about caching data down to the SD card to minimise RAM usage. The ESP32-C3 only
+Biscuit Reader is pretty aggressive about caching data down to the SD card to minimise RAM usage. The ESP32-C3 only
 has ~380KB of usable RAM, so we have to be careful. A lot of the decisions made in the design of the firmware were based
 on this constraint.
 
@@ -173,7 +173,7 @@ principles, please see [GOVERNANCE.md](GOVERNANCE.md).
 
 ---
 
-CrossPoint Reader is **not affiliated with Xteink or any manufacturer of the X4 hardware**.
+Biscuit Reader is **not affiliated with Xteink or any manufacturer of the X4 hardware**.
 
 Huge shoutout to [**diy-esp32-epub-reader** by atomic14](https://github.com/atomic14/diy-esp32-epub-reader), which was a project I took a lot of inspiration from as I
-was making CrossPoint.
+was making Biscuit.

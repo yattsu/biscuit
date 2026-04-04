@@ -1,8 +1,8 @@
-# CrossPoint User Guide
+# Biscuit User Guide
 
-Welcome to the **CrossPoint** firmware. This guide outlines the hardware controls, navigation, and reading features of the device.
+Welcome to the **Biscuit** firmware. This guide outlines the hardware controls, navigation, and reading features of the device.
 
-- [CrossPoint User Guide](#crosspoint-user-guide)
+- [Biscuit User Guide](#biscuit-user-guide)
   - [1. Hardware Overview](#1-hardware-overview)
     - [Button Layout](#button-layout)
   - [2. Power \& Startup](#2-power--startup)
@@ -102,7 +102,7 @@ See the [webserver docs](./docs/webserver.md) for more information on how to con
 
 ### 3.5.1 Calibre Wireless Transfers
 
-CrossPoint supports sending books from Calibre using the CrossPoint Reader device plugin.
+Biscuit supports sending books from Calibre using the Biscuit Reader device plugin.
 
 1. Install the plugin in Calibre:
    - Head to https://github.com/crosspoint-reader/calibre-plugins/releases to download the latest version of the crosspoint_reader plugin.
@@ -201,7 +201,7 @@ The Settings screen allows you to configure the device's behavior. There are a f
 
 #### 3.6.5 KOReader Sync Quick Setup
 
-CrossPoint can sync reading progress with KOReader-compatible sync servers.
+Biscuit can sync reading progress with KOReader-compatible sync servers.
 It also interoperates with KOReader apps/devices when they use the same server and credentials.
 
 ##### Option A: Free Public Server (`sync.koreader.rocks`)
@@ -223,9 +223,9 @@ Already have KOReader Sync credentials? Skip registration; basic sync only requi
 
 When this returns `HTTP 402` with `{"code":2002,"message":"Username is already registered."}`, pick a different username or use that existing account.
 
-2. On each CrossPoint device:
+2. On each Biscuit device:
    - Go to **Settings -> System -> KOReader Sync**.
-   - Set **Username** and **Password** (enter the plain password; CrossPoint computes MD5 internally, and use the same values on all devices).
+   - Set **Username** and **Password** (enter the plain password; Biscuit computes MD5 internally, and use the same values on all devices).
    - Set **Sync Server URL** to `https://sync.koreader.rocks`, or leave it empty (both use the same default KOReader sync server).
    - Run **Authenticate**.
 
@@ -273,7 +273,7 @@ curl -H "Accept: application/vnd.koreader.v1+json" "http://<server-ip>:17200/hea
 ```
 
 3. Register a user once.
-CrossPoint authenticates against KOReader Sync (`koreader/kosync`) using an MD5 key, so register using the MD5 of your password:
+Biscuit authenticates against KOReader Sync (`koreader/kosync`) using an MD5 key, so register using the MD5 of your password:
 
 > [!WARNING]
 > Sending a reusable MD5-derived password over plain HTTP is insecure.
@@ -294,9 +294,9 @@ curl -i "http://<server-ip>:17200/users/create" \
 
 If this returns `HTTP 402` with `{"code":2002,"message":"Username is already registered."}`, the account already exists.
 
-4. On each CrossPoint device:
+4. On each Biscuit device:
    - Go to **Settings -> System -> KOReader Sync**.
-   - Set **Username** and **Password** (enter the plain password; CrossPoint computes MD5 internally, and use the same values on all devices).
+   - Set **Username** and **Password** (enter the plain password; Biscuit computes MD5 internally, and use the same values on all devices).
    - Set **Sync Server URL** to `http://<server-ip>:17200`.
    - Run **Authenticate**.
 
@@ -312,8 +312,8 @@ The **Sleep Screen** setting controls what is displayed when the device goes to 
 
 | Mode | Behavior |
 |------|----------|
-| **Dark** (default) | The CrossPoint logo on a dark background. |
-| **Light** | The CrossPoint logo on a white background. |
+| **Dark** (default) | The Biscuit logo on a dark background. |
+| **Light** | The Biscuit logo on a white background. |
 | **Custom** | A custom image from the SD card (see below). Falls back to **Dark** if no custom image is found. |
 | **Cover** | The cover of the currently open book. Falls back to **Dark** if no book is open. |
 | **Cover + Custom** | The cover of the currently open book. Falls back to **Custom** behavior if no book is open. |
@@ -368,7 +368,7 @@ This feature can be disabled in the **[Controls Settings](#363-controls)** to he
 
 ### Supported Languages
 
-CrossPoint renders text using the following Unicode character blocks, enabling support for a wide range of languages:
+Biscuit renders text using the following Unicode character blocks, enabling support for a wide range of languages:
 
 *   **Latin Script (Basic, Supplement, Extended-A):** Covers English, German, French, Spanish, Portuguese, Italian, Dutch, Swedish, Norwegian, Danish, Finnish, Polish, Czech, Hungarian, Romanian, Slovak, Slovenian, Turkish, and others.
 *   **Cyrillic Script (Standard and Extended):** Covers Russian, Ukrainian, Belarusian, Bulgarian, Serbian, Macedonian, Kazakh, Kyrgyz, Mongolian, and others.

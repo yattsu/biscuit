@@ -1,6 +1,6 @@
-# Project Vision & Scope: CrossPoint Reader
+# Project Vision & Scope: Biscuit Reader
 
-The goal of CrossPoint Reader is to create an efficient, open-source reading experience for the Xteink X4. We believe a
+The goal of Biscuit Reader is to create an efficient, open-source reading experience for the Xteink X4. We believe a
 dedicated e-reader should do one thing exceptionally well: **facilitate focused reading.**
 
 ## 1. Core Mission
@@ -41,15 +41,15 @@ usability over "swiss-army-knife" functionality.
 
 ### In-scope — Technically Unsupported
 
-*These features align with CrossPoint's goals but are impractical on the current hardware or produce poor UX.*
+*These features align with Biscuit's goals but are impractical on the current hardware or produce poor UX.*
 
-* **Clock Display:** The ESP32-C3's RTC drifts significantly during deep sleep; making the clock untrustworthy after any sleep cycle. NTP sync could help, but CrossPoint doesn't connect to the internet on every boot.
+* **Clock Display:** The ESP32-C3's RTC drifts significantly during deep sleep; making the clock untrustworthy after any sleep cycle. NTP sync could help, but Biscuit doesn't connect to the internet on every boot.
 
 * **PDF Rendering:** PDFs are fixed-layout documents, so rendering them requires displaying pages as images rather than reflowable text — resulting in constant panning and zooming that makes for a poor reading experience on e-ink.
 
 ## 3. Idea Evaluation
 
-While I appreciate the desire to add new and exciting features to CrossPoint Reader, CrossPoint Reader is designed to be
+While I appreciate the desire to add new and exciting features to Biscuit Reader, Biscuit Reader is designed to be
 a lightweight, reliable, and performant e-reader. Things which distract or compromise the device's core mission will not
 be accepted. As a guiding question, consider if your idea improve the "core reading experience" for the average user,
 and, critically, not distract from that reading experience.
