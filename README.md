@@ -1,53 +1,66 @@
-# Biscuit Reader
+# Biscuit
 
-Firmware for the **Xteink X4** e-paper display reader (unaffiliated with Xteink).
-Built using **PlatformIO** and targeting the **ESP32-C3** microcontroller.
+**Biscuit is a fork of [CrossPoint Reader](https://github.com/crosspoint-reader/crosspoint-reader)**, the open-source firmware for the Xteink X4 e-paper device. All core reading functionality — EPUB parsing, rendering, file management, WiFi upload, OTA updates, KOReader Sync — comes from CrossPoint. Biscuit builds on top of it with additional apps, themes, and tools.
 
-Biscuit Reader is a purpose-built firmware designed to be a drop-in, fully open-source replacement for the official
-Xteink firmware. It aims to match or improve upon the standard EPUB reading experience.
+If you're looking for a clean, well-maintained e-reader firmware, use CrossPoint directly. Biscuit is an experimental fork that adds things CrossPoint doesn't ship.
 
 ![](./docs/images/cover.jpg)
 
-## Motivation
+## What Biscuit adds on top of CrossPoint
 
-E-paper devices are fantastic for reading, but most commercially available readers are closed systems with limited 
-customisation. The **Xteink X4** is an affordable, e-paper device, however the official firmware remains closed.
-Biscuit exists partly as a fun side-project and partly to open up the ecosystem and truely unlock the device's
-potential.
+* **Apps module** — wireless testing tools, network utilities, games, and productivity apps
+* **Military theme** — optional rugged UI theme with inverted headers, sharp corners, dashed separators
+* **SD card tools** — captive portal templates, DuckyScript runner, BLE beacon tools
+* **Internationalization** — additional language contributions
 
-Biscuit Reader aims to:
-* Provide a **fully open-source alternative** to the official firmware.
-* Offer a **document reader** capable of handling EPUB content on constrained hardware.
-* Support **customisable font, layout, and display** options.
-* Run purely on the **Xteink X4 hardware**.
+Everything else (the reader, the UI framework, the build system, the hardware support) is CrossPoint.
 
-This project is **not affiliated with Xteink**; it's built as a community project.
+## CrossPoint features (inherited)
 
-## Features & Usage
+All of these come from upstream CrossPoint:
 
-- [x] EPUB parsing and rendering (EPUB 2 and EPUB 3)
-- [x] Image support within EPUB
-- [x] Saved reading position
-- [x] File explorer with file picker
-  - [x] Basic EPUB picker from root directory
-  - [x] Support nested folders
-  - [ ] EPUB picker with cover art
-- [x] Custom sleep screen
-  - [x] Cover sleep screen
-- [x] Wifi book upload
-- [x] Wifi OTA updates
-- [x] KOReader Sync integration for cross-device reading progress
-- [x] Configurable font, layout, and display options
-  - [ ] User provided fonts
-  - [ ] Full UTF support
-- [x] Screen rotation
+- EPUB parsing and rendering (EPUB 2 and EPUB 3)
+- Image support within EPUB
+- Saved reading position, file explorer, nested folders
+- Custom sleep screen (cover, dark, light, custom)
+- WiFi book upload, WiFi OTA updates
+- KOReader Sync integration
+- Configurable font, layout, and display options
+- Screen rotation, multi-language support
 
-Multi-language support: Read EPUBs in various languages, including English, Spanish, French, German, Italian, Portuguese, Russian, Ukrainian, Polish, Swedish, Norwegian, [and more](./USER_GUIDE.md#supported-languages).
+See the [CrossPoint README](https://github.com/crosspoint-reader/crosspoint-reader) for the full feature list and [the user guide](./USER_GUIDE.md) for usage instructions.
 
-See [the user guide](./USER_GUIDE.md) for instructions on operating Biscuit, including the
-[KOReader Sync quick setup](./USER_GUIDE.md#365-koreader-sync-quick-setup).
+## Biscuit features
 
-For more details about the scope of the project, see the [SCOPE.md](SCOPE.md) document.
+### Apps
+
+**Network tools:** WiFi connect, WiFi scanner, host scanner, ping, DNS lookup
+
+**Wireless testing:** BLE scanner, packet monitor, PCAP capture, beacon spammer, WiFi deauther, captive portal (evil portal), BLE beacon spam, AirTag spoofer, BadBLE (DuckyScript over BLE HID)
+
+**Games:** Minesweeper, Sudoku, Chess, Game of Life, Voronoi, Snake, Tetris, Dice Roller
+
+**Utilities:** Password manager, Pomodoro timer, NTP clock, Stopwatch, QR generator, Morse code, Unit converter, Text viewer, Etch-A-Sketch
+
+### Themes
+
+- **Classic** and **Lyra** — from CrossPoint
+- **Military** — inverted header bars, sharp corners, dashed separators, bracket-style button hints, uppercase labels
+
+### SD card structure
+
+Biscuit creates `/biscuit/` on the SD card for app data:
+
+```
+/biscuit/
+  portals/     # HTML templates for captive portal
+  ducky/       # DuckyScript .txt files for BadBLE
+  pcap/        # Packet captures
+  scans/       # Network scan results
+  logs/        # BLE scan logs, WiFi logs
+  drawings/    # Etch-A-Sketch saves
+  creds.csv    # Captured portal credentials
+```
 
 ## Installing
 
@@ -83,10 +96,8 @@ See [Development](#development) below.
 
 ### Checking out the code
 
-Biscuit uses PlatformIO for building and flashing the firmware. To get started, clone the repository:
-
 ```
-git clone --recursive https://github.com/crosspoint-reader/crosspoint-reader
+git clone --recursive https://github.com/user/biscuit
 
 # Or, if you've already cloned without --recursive:
 git submodule update --init --recursive
@@ -173,7 +184,10 @@ principles, please see [GOVERNANCE.md](GOVERNANCE.md).
 
 ---
 
-Biscuit Reader is **not affiliated with Xteink or any manufacturer of the X4 hardware**.
+## Credits
 
-Huge shoutout to [**diy-esp32-epub-reader** by atomic14](https://github.com/atomic14/diy-esp32-epub-reader), which was a project I took a lot of inspiration from as I
-was making Biscuit.
+Biscuit is a fork of [**CrossPoint Reader**](https://github.com/crosspoint-reader/crosspoint-reader). All credit for the core e-reader firmware goes to the CrossPoint contributors.
+
+CrossPoint itself was inspired by [**diy-esp32-epub-reader** by atomic14](https://github.com/atomic14/diy-esp32-epub-reader).
+
+Not affiliated with Xteink or any manufacturer of the X4 hardware.
