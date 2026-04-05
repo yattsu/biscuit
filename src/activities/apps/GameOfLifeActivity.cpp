@@ -220,6 +220,7 @@ void GameOfLifeActivity::loop() {
 
     if (mappedInput.wasReleased(MappedInputManager::Button::Back)) {
       finish();
+      return;
     }
   }
 

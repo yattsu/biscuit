@@ -94,7 +94,7 @@ void SettingsActivity::loop() {
       requestUpdate();
     } else {
       SETTINGS.saveToFile();
-      onGoHome();
+      finish();
     }
     return;
   }

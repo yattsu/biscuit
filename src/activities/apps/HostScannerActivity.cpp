@@ -36,7 +36,10 @@ void HostScannerActivity::onEnter() {
   requestUpdate();
 }
 
-void HostScannerActivity::onExit() { Activity::onExit(); }
+void HostScannerActivity::onExit() {
+  Activity::onExit();
+  RADIO.shutdown();
+}
 
 void HostScannerActivity::startHostScan() {
   state = SCANNING_HOSTS;

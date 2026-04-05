@@ -7,6 +7,7 @@
 #include "browser/OpdsBookBrowserActivity.h"
 #include "home/FileBrowserActivity.h"
 #include "home/HomeActivity.h"
+#include "apps/AppsMenuActivity.h"
 #include "home/RecentBooksActivity.h"
 #include "network/CrossPointWebServerActivity.h"
 #include "reader/ReaderActivity.h"
@@ -196,7 +197,7 @@ void ActivityManager::goToFullScreenMessage(std::string message, EpdFontFamily::
   replaceActivity(std::make_unique<FullScreenMessageActivity>(renderer, mappedInput, std::move(message), style));
 }
 
-void ActivityManager::goHome() { replaceActivity(std::make_unique<HomeActivity>(renderer, mappedInput)); }
+void ActivityManager::goHome() { replaceActivity(std::make_unique<AppsMenuActivity>(renderer, mappedInput)); }
 
 void ActivityManager::pushActivity(std::unique_ptr<Activity>&& activity) {
   if (pendingActivity) {

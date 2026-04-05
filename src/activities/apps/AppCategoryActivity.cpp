@@ -65,8 +65,15 @@ void AppCategoryActivity::render(RenderLock&&) {
 
   renderer.clearScreen();
 
+  // === Branded header (matches dashboard style) ===
+  constexpr int headerH = 40;
+  constexpr int pad = 14;
+
   if (disclaimerShown) {
-    GUI.drawHeader(renderer, Rect{0, metrics.topPadding, pageWidth, metrics.headerHeight}, title);
+    // Disclaimer screen
+    renderer.drawText(UI_12_FONT_ID, pad, 10, title, true, EpdFontFamily::BOLD);
+    renderer.drawLine(pad, headerH - 2, pageWidth - pad, headerH - 2, true);
+
     renderer.drawCenteredText(UI_10_FONT_ID, pageHeight / 2 - 40, tr(STR_DISCLAIMER));
     const auto labels = mappedInput.mapLabels(tr(STR_EXIT), tr(STR_CONFIRM), "", "");
     GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
@@ -74,16 +81,28 @@ void AppCategoryActivity::render(RenderLock&&) {
     return;
   }
 
-  GUI.drawHeader(renderer, Rect{0, metrics.topPadding, pageWidth, metrics.headerHeight}, title);
+  // Category title on left (bold)
+  renderer.drawText(UI_12_FONT_ID, pad, 10, title, true, EpdFontFamily::BOLD);
 
-  const int contentTop = metrics.topPadding + metrics.headerHeight + metrics.verticalSpacing;
-  const int contentHeight = pageHeight - contentTop - metrics.buttonHintsHeight - metrics.verticalSpacing;
+  // Item count on right
   const int count = static_cast<int>(entries.size());
+  char countStr[16];
+  snprintf(countStr, sizeof(countStr), "%d items", count);
+  int countW = renderer.getTextWidth(SMALL_FONT_ID, countStr);
+  renderer.drawText(SMALL_FONT_ID, pageWidth - pad - countW, 14, countStr);
+
+  // Separator line
+  renderer.drawLine(pad, headerH - 2, pageWidth - pad, headerH - 2, true);
+
+  // === App list ===
+  const int listTop = headerH + 4;
+  const int listHeight = pageHeight - listTop - metrics.buttonHintsHeight - metrics.verticalSpacing;
 
   GUI.drawList(
-      renderer, Rect{0, contentTop, pageWidth, contentHeight}, count, selectorIndex,
+      renderer, Rect{0, listTop, pageWidth, listHeight}, count, selectorIndex,
       [this](int index) -> std::string { return entries[index].nameStrId; }, nullptr, nullptr);
 
+  // === Button hints ===
   const auto labels = mappedInput.mapLabels(tr(STR_BACK), tr(STR_SELECT), tr(STR_DIR_UP), tr(STR_DIR_DOWN));
   GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
 

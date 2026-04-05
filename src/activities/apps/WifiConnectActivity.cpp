@@ -167,11 +167,21 @@ std::string WifiConnectActivity::signalBars(int32_t rssi) {
 
 void WifiConnectActivity::loop() {
   if (state == SCANNING) {
+    if (mappedInput.wasReleased(MappedInputManager::Button::Back)) {
+      finish();
+      return;
+    }
     processScanResults();
     return;
   }
 
   if (state == CONNECTING) {
+    if (mappedInput.wasReleased(MappedInputManager::Button::Back)) {
+      WiFi.disconnect();
+      state = LIST;
+      requestUpdate();
+      return;
+    }
     checkConnectionStatus();
     return;
   }

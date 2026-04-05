@@ -196,8 +196,10 @@ void UnitConverterActivity::loop() {
         cursorPos++;
       } else {
         // Add a new digit
-        valueStr += '0';
-        cursorPos = valueStr.size();
+        if (valueStr.size() < 15) {
+          valueStr += '0';
+          cursorPos = valueStr.size();
+        }
       }
       requestUpdate();
     }

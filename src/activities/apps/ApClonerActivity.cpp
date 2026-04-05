@@ -121,6 +121,10 @@ const char* ApClonerActivity::encryptionString(uint8_t type) {
 
 void ApClonerActivity::loop() {
   if (state == SCANNING) {
+    if (mappedInput.wasReleased(MappedInputManager::Button::Back)) {
+      finish();
+      return;
+    }
     processScanResults();
     return;
   }
