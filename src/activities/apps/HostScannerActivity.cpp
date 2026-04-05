@@ -30,6 +30,7 @@ void HostScannerActivity::onEnter() {
   selectedHost = -1;
 
   if (WiFi.isConnected()) {
+    RADIO.ensureWifi();  // Sync RadioManager state with actual radio
     startHostScan();
   }
   requestUpdate();

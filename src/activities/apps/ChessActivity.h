@@ -39,10 +39,10 @@ class ChessActivity final : public Activity {
   void computeValidMoves(int fx, int fy);
   void addMovesForPiece(int fx, int fy, std::vector<std::pair<int, int>>& moves) const;
   void addSlidingMoves(int fx, int fy, int dx, int dy, std::vector<std::pair<int, int>>& moves) const;
-  bool isSquareAttacked(int tx, int ty, bool byWhite) const;
-  bool wouldBeInCheck(int fx, int fy, int tx, int ty) const;
+  bool isSquareAttacked(int tx, int ty, bool byWhite);
+  bool wouldBeInCheck(int fx, int fy, int tx, int ty);
   bool findKing(bool white, int& kx, int& ky) const;
-  bool hasAnyLegalMove() const;
+  bool hasAnyLegalMove();
   void doMove(int fx, int fy, int tx, int ty);
   void checkGameState();
 };

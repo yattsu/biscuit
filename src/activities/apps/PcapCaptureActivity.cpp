@@ -28,9 +28,10 @@ void PcapCaptureActivity::onPacket(const uint8_t* buf, uint16_t len) {
 
   if (isEapolPacket(buf, len)) eapolFound = true;
 
-  portENTER_CRITICAL(&fileMux);
-  writePacket(buf, len);
-  portEXIT_CRITICAL(&fileMux);
+  if (xSemaphoreTake(fileMux, pdMS_TO_TICKS(50)) == pdTRUE) {
+    writePacket(buf, len);
+    xSemaphoreGive(fileMux);
+  }
 }
 
 bool PcapCaptureActivity::isEapolPacket(const uint8_t* data, uint16_t len) const {
@@ -45,6 +46,7 @@ bool PcapCaptureActivity::isEapolPacket(const uint8_t* data, uint16_t len) const
 
 void PcapCaptureActivity::onEnter() {
   Activity::onEnter();
+  if (!fileMux) fileMux = xSemaphoreCreateMutex();
   RADIO.ensureWifi();
   state = MODE_SELECT;
   modeIndex = 0;
@@ -61,6 +63,7 @@ void PcapCaptureActivity::onExit() {
   Activity::onExit();
   stopCapture();
   activeCapture = nullptr;
+  RADIO.shutdown();
 }
 
 void PcapCaptureActivity::writePcapHeader() {
@@ -131,13 +134,14 @@ void PcapCaptureActivity::stopCapture() {
   // Disable promiscuous first to stop callbacks before closing file
   esp_wifi_set_promiscuous(false);
 
-  portENTER_CRITICAL(&fileMux);
-  if (fileOpen) {
-    pcapFile.flush();
-    pcapFile.close();
-    fileOpen = false;
+  if (xSemaphoreTake(fileMux, pdMS_TO_TICKS(1000)) == pdTRUE) {
+    if (fileOpen) {
+      pcapFile.flush();
+      pcapFile.close();
+      fileOpen = false;
+    }
+    xSemaphoreGive(fileMux);
   }
-  portEXIT_CRITICAL(&fileMux);
   LOG_DBG("PCAP", "Capture stopped, %u packets, %u bytes", packetsSaved, fileSize);
 }
 
@@ -174,9 +178,10 @@ void PcapCaptureActivity::loop() {
     // Update display
     if (now - lastUpdateTime >= 2000) {
       lastUpdateTime = now;
-      portENTER_CRITICAL(&fileMux);
-      pcapFile.flush();
-      portEXIT_CRITICAL(&fileMux);
+      if (xSemaphoreTake(fileMux, pdMS_TO_TICKS(100)) == pdTRUE) {
+        pcapFile.flush();
+        xSemaphoreGive(fileMux);
+      }
       requestUpdate();
     }
 

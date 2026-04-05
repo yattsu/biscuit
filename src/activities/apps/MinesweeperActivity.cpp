@@ -66,14 +66,28 @@ void MinesweeperActivity::reveal(int x, int y) {
   if (x < 0 || x >= cols || y < 0 || y >= rows) return;
   if (isRevealed(x, y) || isFlagged(x, y)) return;
 
-  grid[x][y] |= REVEALED;
+  // Iterative flood fill using fixed-size stack
+  static constexpr int MAX_CELLS = 160;  // 10*16 max grid
+  struct Cell { int8_t x, y; };
+  Cell stack[MAX_CELLS];
+  int top = 0;
+  stack[top++] = {static_cast<int8_t>(x), static_cast<int8_t>(y)};
 
-  // Flood fill for empty cells
-  if (getCellValue(x, y) == 0) {
-    for (int dx = -1; dx <= 1; dx++) {
-      for (int dy = -1; dy <= 1; dy++) {
-        if (dx == 0 && dy == 0) continue;
-        reveal(x + dx, y + dy);
+  while (top > 0) {
+    Cell c = stack[--top];
+    if (c.x < 0 || c.x >= cols || c.y < 0 || c.y >= rows) continue;
+    if (isRevealed(c.x, c.y) || isFlagged(c.x, c.y)) continue;
+
+    grid[c.x][c.y] |= REVEALED;
+
+    if (getCellValue(c.x, c.y) == 0) {
+      for (int dx = -1; dx <= 1; dx++) {
+        for (int dy = -1; dy <= 1; dy++) {
+          if (dx == 0 && dy == 0) continue;
+          if (top < MAX_CELLS) {
+            stack[top++] = {static_cast<int8_t>(c.x + dx), static_cast<int8_t>(c.y + dy)};
+          }
+        }
       }
     }
   }

@@ -41,6 +41,18 @@ void PingActivity::onEnter() {
 void PingActivity::onExit() { Activity::onExit(); }
 
 void PingActivity::doPing() {
+  if (WiFi.status() != WL_CONNECTED) {
+    PingResult pr;
+    pr.success = false;
+    pr.rttMs = 0;
+    results.push_back(pr);
+    if (static_cast<int>(results.size()) > MAX_DISPLAY_RESULTS) {
+      results.erase(results.begin());
+    }
+    totalSent++;
+    return;
+  }
+
   WiFiClient client;
   unsigned long start = millis();
   bool ok = client.connect(targetHost.c_str(), 80, 3000);

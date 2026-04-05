@@ -159,11 +159,7 @@ void StopwatchActivity::loop() {
   // Countdown done
   if (state == COUNTDOWN_DONE) {
     // Flash effect
-    if (cdFlashing && now - cdFlashTime >= 500) {
-      cdFlashing = !cdFlashing;
-      cdFlashTime = now;
-      requestUpdate();
-    } else if (!cdFlashing && now - cdFlashTime >= 500) {
+    if (now - cdFlashTime >= 500) {
       cdFlashing = !cdFlashing;
       cdFlashTime = now;
       requestUpdate();

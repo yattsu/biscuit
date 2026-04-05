@@ -6,7 +6,8 @@
 #include <HalStorage.h>
 #include <I18n.h>
 #include <Logging.h>
-#include <WiFi.h>
+
+#include "util/RadioManager.h"
 
 #include <algorithm>
 #include <string>
@@ -33,11 +34,8 @@ void BleScannerActivity::onEnter() {
   scanning = false;
   scanInitialized = false;
 
-  // Ensure WiFi is off before BLE
-  WiFi.mode(WIFI_OFF);
-  delay(100);
-
-  BLEDevice::init("biscuit");
+  // Use RadioManager to switch to BLE mode
+  RADIO.ensureBle();
   scanInitialized = true;
   activeScanner = this;
   startBleScan();
@@ -49,7 +47,7 @@ void BleScannerActivity::onExit() {
   stopBleScan();
   activeScanner = nullptr;
   if (scanInitialized) {
-    BLEDevice::deinit(false);
+    RADIO.shutdown();
     scanInitialized = false;
   }
 }

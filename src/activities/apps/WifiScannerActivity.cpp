@@ -5,6 +5,8 @@
 #include <Logging.h>
 #include <WiFi.h>
 
+#include "util/RadioManager.h"
+
 #include <algorithm>
 #include <string>
 
@@ -18,7 +20,7 @@ void WifiScannerActivity::onEnter() {
   networks.clear();
   selectorIndex = 0;
   sortBySignal = true;
-  WiFi.mode(WIFI_STA);
+  RADIO.ensureWifi();
   WiFi.disconnect();
   startScan();
   requestUpdate();
@@ -27,7 +29,7 @@ void WifiScannerActivity::onEnter() {
 void WifiScannerActivity::onExit() {
   Activity::onExit();
   WiFi.scanDelete();
-  WiFi.mode(WIFI_OFF);
+  RADIO.shutdown();
 }
 
 void WifiScannerActivity::startScan() {

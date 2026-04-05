@@ -8,6 +8,7 @@
 #include "BleBeaconActivity.h"
 #include "BleKeyboardActivity.h"
 #include "BleScannerActivity.h"
+#include "CasinoActivity.h"
 #include "ChessActivity.h"
 #include "DiceRollerActivity.h"
 #include "DnsLookupActivity.h"
@@ -86,6 +87,7 @@ void AppsMenuActivity::loop() {
       }
       case 2: {
         std::vector<AppCategoryActivity::AppEntry> e = {
+	    {"Casino", [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<CasinoActivity>(r, m); }},
             {tr(STR_MINESWEEPER), [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<MinesweeperActivity>(r, m); }},
             {tr(STR_SUDOKU), [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<SudokuActivity>(r, m); }},
             {tr(STR_CHESS), [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<ChessActivity>(r, m); }},
@@ -117,7 +119,7 @@ void AppsMenuActivity::loop() {
     if (app) activityManager.pushActivity(std::move(app));
   }
 
-  if (mappedInput.wasReleased(MappedInputManager::Button::Back)) {
+  if (mappedInput.wasPressed(MappedInputManager::Button::Back)) {
     finish();
   }
 }

@@ -32,7 +32,7 @@ inline const std::vector<SettingInfo>& getSettingsList() {
           "refreshFrequency", StrId::STR_CAT_DISPLAY),
       SettingInfo::Enum(StrId::STR_UI_THEME, &CrossPointSettings::uiTheme,
                         {StrId::STR_THEME_CLASSIC, StrId::STR_THEME_LYRA, StrId::STR_THEME_LYRA_EXTENDED,
-                         StrId::STR_THEME_MILITARY},
+                         StrId::STR_THEME_MILITARY, StrId::STR_THEME_NOIR},
                         "uiTheme",
                         StrId::STR_CAT_DISPLAY),
       SettingInfo::Toggle(StrId::STR_SUNLIGHT_FADING_FIX, &CrossPointSettings::fadingFix, "fadingFix",

@@ -20,7 +20,6 @@ class DiceRollerActivity final : public Activity {
   enum State { SELECT, ROLLING, RESULT };
 
   State state = SELECT;
-  ButtonNavigator buttonNavigator;
 
   // Die types: d4, d6, d8, d10, d12, d20, d100
   static constexpr int DIE_TYPES[] = {4, 6, 8, 10, 12, 20, 100};

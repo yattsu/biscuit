@@ -24,4 +24,12 @@ class VoronoiActivity final : public Activity {
   int genHeight = 800;
 
   void generate();
+
+  static constexpr int GRID_STEP = 8;
+  static constexpr int MAX_GRID_W = 100;  // 800/8
+  static constexpr int MAX_GRID_H = 60;   // 480/8
+  uint8_t nearestGrid[MAX_GRID_H][MAX_GRID_W]{};
+  int gridW = 0, gridH = 0;
+
+  void precompute();
 };

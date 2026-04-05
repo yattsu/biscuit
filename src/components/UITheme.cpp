@@ -12,6 +12,7 @@
 #include "components/themes/MilitaryTheme.h"
 #include "components/themes/lyra/Lyra3CoversTheme.h"
 #include "components/themes/lyra/LyraTheme.h"
+#include "components/themes/noir/NoirTheme.h"
 
 namespace {
 constexpr int SKIP_PAGE_MS = 700;
@@ -50,6 +51,11 @@ void UITheme::setTheme(CrossPointSettings::UI_THEME type) {
       LOG_DBG("UI", "Using Military theme");
       currentTheme = std::make_unique<MilitaryTheme>();
       currentMetrics = &MilitaryMetrics::values;
+      break;
+    case CrossPointSettings::UI_THEME::NOIR:
+      LOG_DBG("UI", "Using Noir theme");
+      currentTheme = std::make_unique<NoirTheme>();
+      currentMetrics = &NoirMetrics::values;
       break;
   }
 }

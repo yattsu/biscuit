@@ -15,6 +15,33 @@ void VoronoiActivity::generate() {
     points[i].x = esp_random() % genWidth;
     points[i].y = esp_random() % genHeight;
   }
+  precompute();
+}
+
+void VoronoiActivity::precompute() {
+  gridW = genWidth / GRID_STEP;
+  gridH = genHeight / GRID_STEP;
+  if (gridW > MAX_GRID_W) gridW = MAX_GRID_W;
+  if (gridH > MAX_GRID_H) gridH = MAX_GRID_H;
+
+  for (int gy = 0; gy < gridH; gy++) {
+    int py = gy * GRID_STEP + GRID_STEP / 2;
+    for (int gx = 0; gx < gridW; gx++) {
+      int px = gx * GRID_STEP + GRID_STEP / 2;
+      int minDist = INT32_MAX;
+      uint8_t nearest = 0;
+      for (int i = 0; i < numPoints; i++) {
+        int dx = px - points[i].x;
+        int dy = py - points[i].y;
+        int dist = dx * dx + dy * dy;
+        if (dist < minDist) {
+          minDist = dist;
+          nearest = static_cast<uint8_t>(i);
+        }
+      }
+      nearestGrid[gy][gx] = nearest;
+    }
+  }
 }
 
 void VoronoiActivity::onEnter() {
@@ -60,78 +87,30 @@ void VoronoiActivity::render(RenderLock&&) {
 
   renderer.clearScreen();
 
-  // Draw Voronoi diagram using brute-force nearest-neighbor
-  // For e-ink: alternate black/white cells based on nearest point index parity
-  // Use a step size to speed up rendering on constrained hardware
-  constexpr int STEP = 4;
-
-  for (int y = 0; y < pageHeight; y += STEP) {
-    for (int x = 0; x < pageWidth; x += STEP) {
-      int minDist = INT32_MAX;
-      int nearest = 0;
-      for (int i = 0; i < numPoints; i++) {
-        int dx = x - points[i].x;
-        int dy = y - points[i].y;
-        int dist = dx * dx + dy * dy;
-        if (dist < minDist) {
-          minDist = dist;
-          nearest = i;
-        }
-      }
-
-      // Use pattern based on point index for visual variety
-      // Every other region is filled, creating a mosaic
-      if (nearest % 2 == 0) {
-        renderer.fillRect(x, y, STEP, STEP, true);
+  // Fill regions from pre-computed grid
+  for (int gy = 0; gy < gridH; gy++) {
+    for (int gx = 0; gx < gridW; gx++) {
+      if (nearestGrid[gy][gx] % 2 == 0) {
+        renderer.fillRect(gx * GRID_STEP, gy * GRID_STEP, GRID_STEP, GRID_STEP, true);
       }
     }
   }
 
-  // Draw cell borders by checking where nearest point changes
-  for (int y = 0; y < pageHeight; y += 2) {
-    for (int x = 0; x < pageWidth; x += 2) {
-      int minDist = INT32_MAX;
-      int nearest = 0;
-      for (int i = 0; i < numPoints; i++) {
-        int dx = x - points[i].x;
-        int dy = y - points[i].y;
-        int dist = dx * dx + dy * dy;
-        if (dist < minDist) {
-          minDist = dist;
-          nearest = i;
-        }
+  // Draw cell borders where nearest point changes
+  for (int gy = 0; gy < gridH; gy++) {
+    for (int gx = 0; gx < gridW; gx++) {
+      uint8_t cur = nearestGrid[gy][gx];
+      // Check right neighbor
+      if (gx + 1 < gridW && cur != nearestGrid[gy][gx + 1]) {
+        int bx = (gx + 1) * GRID_STEP;
+        int by = gy * GRID_STEP;
+        renderer.fillRect(bx - 1, by, 2, GRID_STEP, true);
       }
-      // Check neighbor
-      int minDist2 = INT32_MAX;
-      int nearest2 = 0;
-      for (int i = 0; i < numPoints; i++) {
-        int dx = (x + 2) - points[i].x;
-        int dy = y - points[i].y;
-        int dist = dx * dx + dy * dy;
-        if (dist < minDist2) {
-          minDist2 = dist;
-          nearest2 = i;
-        }
-      }
-      if (nearest != nearest2) {
-        renderer.drawPixel(x, y, true);
-        renderer.drawPixel(x + 1, y, true);
-      }
-      // Check below
-      int minDist3 = INT32_MAX;
-      int nearest3 = 0;
-      for (int i = 0; i < numPoints; i++) {
-        int dx = x - points[i].x;
-        int dy = (y + 2) - points[i].y;
-        int dist = dx * dx + dy * dy;
-        if (dist < minDist3) {
-          minDist3 = dist;
-          nearest3 = i;
-        }
-      }
-      if (nearest != nearest3) {
-        renderer.drawPixel(x, y, true);
-        renderer.drawPixel(x, y + 1, true);
+      // Check bottom neighbor
+      if (gy + 1 < gridH && cur != nearestGrid[gy + 1][gx]) {
+        int bx = gx * GRID_STEP;
+        int by = (gy + 1) * GRID_STEP;
+        renderer.fillRect(bx, by - 1, GRID_STEP, 2, true);
       }
     }
   }
@@ -144,7 +123,7 @@ void VoronoiActivity::render(RenderLock&&) {
     renderer.drawRect(px - 2, py - 2, 5, 5, true);
   }
 
-  // Info overlay at bottom
+  // Info overlay
   std::string info = std::string(tr(STR_POINTS)) + ": " + std::to_string(numPoints);
   GUI.drawHeader(renderer, Rect{0, metrics.topPadding, pageWidth, metrics.headerHeight}, tr(STR_VORONOI),
                  info.c_str());

@@ -26,7 +26,7 @@ void AppCategoryActivity::loop() {
       disclaimerShown = false;
       requestUpdate();
     }
-    if (mappedInput.wasReleased(MappedInputManager::Button::Back)) {
+    if (mappedInput.wasPressed(MappedInputManager::Button::Back)) {
       finish();
     }
     return;
@@ -53,7 +53,7 @@ void AppCategoryActivity::loop() {
     }
   }
 
-  if (mappedInput.wasReleased(MappedInputManager::Button::Back)) {
+  if (mappedInput.wasPressed(MappedInputManager::Button::Back)) {
     finish();
   }
 }

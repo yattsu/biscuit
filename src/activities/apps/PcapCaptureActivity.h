@@ -1,7 +1,8 @@
 #pragma once
 #include <cstdint>
 
-#include <freertos/portmacro.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/semphr.h>
 
 #include "activities/Activity.h"
 
@@ -27,7 +28,7 @@ class PcapCaptureActivity final : public Activity {
   CaptureMode captureMode = ALL_PACKETS;
   int modeIndex = 0;
 
-  portMUX_TYPE fileMux = portMUX_INITIALIZER_UNLOCKED;
+  SemaphoreHandle_t fileMux = nullptr;
   FsFile pcapFile;
   bool fileOpen = false;
   volatile uint32_t packetsSaved = 0;

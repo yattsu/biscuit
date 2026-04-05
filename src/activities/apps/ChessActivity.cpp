@@ -106,25 +106,23 @@ void ChessActivity::addMovesForPiece(int fx, int fy, std::vector<std::pair<int, 
   }
 }
 
-bool ChessActivity::isSquareAttacked(int tx, int ty, bool byWhite) const {
-  // Temporarily flip turn perspective to reuse addMovesForPiece logic
+bool ChessActivity::isSquareAttacked(int tx, int ty, bool byWhite) {
+  bool savedTurn = whiteTurn;
+  whiteTurn = byWhite;
+  std::vector<std::pair<int, int>> moves;
   for (int r = 0; r < 8; r++) {
     for (int c = 0; c < 8; c++) {
       uint8_t p = board[r][c];
       if (p == EMPTY) continue;
       if (byWhite ? !isWhite(p) : !isBlack(p)) continue;
-      // Check if this piece can reach tx,ty
-      std::vector<std::pair<int, int>> moves;
-      // Save and temporarily set turn for proper enemy detection
-      bool savedTurn = const_cast<ChessActivity*>(this)->whiteTurn;
-      const_cast<ChessActivity*>(this)->whiteTurn = byWhite;
+      moves.clear();
       addMovesForPiece(r, c, moves);
-      const_cast<ChessActivity*>(this)->whiteTurn = savedTurn;
       for (auto& [mr, mc] : moves) {
-        if (mr == tx && mc == ty) return true;
+        if (mr == tx && mc == ty) { whiteTurn = savedTurn; return true; }
       }
     }
   }
+  whiteTurn = savedTurn;
   return false;
 }
 
@@ -138,20 +136,20 @@ bool ChessActivity::findKing(bool white, int& kx, int& ky) const {
   return false;
 }
 
-bool ChessActivity::wouldBeInCheck(int fx, int fy, int tx, int ty) const {
+bool ChessActivity::wouldBeInCheck(int fx, int fy, int tx, int ty) {
   // Simulate move
   uint8_t savedTarget = board[tx][ty];
   uint8_t savedSource = board[fx][fy];
-  const_cast<uint8_t&>(board[tx][ty]) = savedSource;
-  const_cast<uint8_t&>(board[fx][fy]) = EMPTY;
+  board[tx][ty] = savedSource;
+  board[fx][fy] = EMPTY;
 
   int kx, ky;
   findKing(whiteTurn, kx, ky);
   bool check = isSquareAttacked(kx, ky, !whiteTurn);
 
   // Undo
-  const_cast<uint8_t&>(board[fx][fy]) = savedSource;
-  const_cast<uint8_t&>(board[tx][ty]) = savedTarget;
+  board[fx][fy] = savedSource;
+  board[tx][ty] = savedTarget;
   return check;
 }
 
@@ -166,7 +164,7 @@ void ChessActivity::computeValidMoves(int fx, int fy) {
   }
 }
 
-bool ChessActivity::hasAnyLegalMove() const {
+bool ChessActivity::hasAnyLegalMove() {
   for (int r = 0; r < 8; r++) {
     for (int c = 0; c < 8; c++) {
       if (!isOwnPiece(board[r][c])) continue;

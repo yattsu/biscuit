@@ -38,6 +38,13 @@ void DnsLookupActivity::doResolve() {
   state = RESOLVING;
   requestUpdate();
 
+  if (WiFi.status() != WL_CONNECTED) {
+    resolutionFailed = true;
+    state = RESULTS;
+    requestUpdate();
+    return;
+  }
+
   IPAddress ip;
   unsigned long start = millis();
   int ret = WiFi.hostByName(hostname.c_str(), ip);

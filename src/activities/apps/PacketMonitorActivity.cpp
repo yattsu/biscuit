@@ -6,6 +6,8 @@
 #include <WiFi.h>
 #include <esp_wifi.h>
 
+#include "util/RadioManager.h"
+
 #include <string>
 
 #include "MappedInputManager.h"
@@ -75,9 +77,8 @@ void PacketMonitorActivity::onExit() {
 }
 
 void PacketMonitorActivity::startMonitor() {
-  WiFi.mode(WIFI_STA);
+  RADIO.ensureWifi();
   WiFi.disconnect();
-  delay(10);
 
   activeMonitor = this;
   esp_wifi_set_promiscuous(true);
@@ -90,7 +91,7 @@ void PacketMonitorActivity::stopMonitor() {
   monitoring = false;
   esp_wifi_set_promiscuous(false);
   activeMonitor = nullptr;
-  WiFi.mode(WIFI_OFF);
+  RADIO.shutdown();
 }
 
 void PacketMonitorActivity::setChannel(uint8_t ch) {

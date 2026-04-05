@@ -5,6 +5,8 @@
 #include <Logging.h>
 #include <WiFi.h>
 
+#include "util/RadioManager.h"
+
 #include <algorithm>
 #include <map>
 
@@ -16,6 +18,7 @@
 
 void WifiConnectActivity::onEnter() {
   Activity::onEnter();
+  RADIO.ensureWifi();
   {
     RenderLock lock(*this);
     WIFI_STORE.loadFromFile();
@@ -37,7 +40,7 @@ void WifiConnectActivity::startScan() {
   state = SCANNING;
   networks.clear();
   requestUpdate();
-  WiFi.mode(WIFI_STA);
+  // RadioManager already ensured WiFi mode in onEnter()
   WiFi.scanNetworks(true);
 }
 
