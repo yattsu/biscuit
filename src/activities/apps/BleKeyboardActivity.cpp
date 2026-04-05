@@ -369,6 +369,7 @@ void BleKeyboardActivity::executeCurrentLine() {
 
   executeLine(scriptLines[currentLine]);
   currentLine++;
+  if (currentLine % 5 == 0) { yield(); }
   requestUpdate();
 }
 

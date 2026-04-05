@@ -15,7 +15,7 @@ class ChessActivity final : public Activity {
   bool preventAutoSleep() override { return true; }
 
  private:
-  enum State { SELECT_PIECE, SELECT_TARGET, GAME_OVER };
+  enum State { SETUP, SELECT_PIECE, SELECT_TARGET, GAME_OVER };
   enum Piece : uint8_t { EMPTY = 0, W_PAWN, W_ROOK, W_KNIGHT, W_BISHOP, W_QUEEN, W_KING,
                          B_PAWN, B_ROOK, B_KNIGHT, B_BISHOP, B_QUEEN, B_KING };
 
@@ -29,6 +29,13 @@ class ChessActivity final : public Activity {
   std::string gameOverMsg;
   std::vector<std::pair<int, int>> validMoves;
 
+  // Bot
+  bool vsBot = false;
+  bool botThinking = false;
+  unsigned long botThinkStart = 0;
+  int setupIndex = 0; // 0=vs Human, 1=vs Bot
+
+  void botMove();
   void initBoard();
   bool isWhite(uint8_t piece) const { return piece >= W_PAWN && piece <= W_KING; }
   bool isBlack(uint8_t piece) const { return piece >= B_PAWN && piece <= B_KING; }

@@ -4,11 +4,19 @@
 #include <I18n.h>
 #include <esp_random.h>
 
+#include <algorithm>
 #include <cstring>
 
 #include "MappedInputManager.h"
 #include "components/UITheme.h"
 #include "fontIds.h"
+
+// 25% gray (light dither)
+static void fillDithered25(GfxRenderer& r, int x, int y, int w, int h) {
+  for (int dy = 0; dy < h; dy += 2)
+    for (int dx = ((dy / 2) % 2); dx < w; dx += 2)
+      r.drawPixel(x + dx, y + dy, true);
+}
 
 // Tetromino shapes encoded as 4x4 bitmaps in a 16-bit value
 // Bit layout: bits 15-12 = row 0, bits 11-8 = row 1, bits 7-4 = row 2, bits 3-0 = row 3
@@ -56,10 +64,18 @@ void TetrisActivity::initGame() {
   const auto& metrics = UITheme::getInstance().getMetrics();
   int screenW = renderer.getScreenWidth();
   int screenH = renderer.getScreenHeight();
-  int boardPixelW = BOARD_W * CELL_SIZE;
-  int boardPixelH = BOARD_H * CELL_SIZE;
-  boardOffsetX = (screenW - boardPixelW) / 2;
+  // Dynamic cell size — use 70% of width for board, maximize height usage
+  int availH = screenH - metrics.topPadding - 25 - metrics.buttonHintsHeight;
+  cellSize = std::min(availH / BOARD_H, (screenW * 7 / 10) / BOARD_W);
+  if (cellSize < 15) cellSize = 15;
+  if (cellSize > 37) cellSize = 37;
+  int boardPixelW = BOARD_W * cellSize;
+  int boardPixelH = BOARD_H * cellSize;
+  // Board on the left side, leaving room for side panel
+  boardOffsetX = 15;
   boardOffsetY = metrics.topPadding + 25;
+  (void)boardPixelW;
+  (void)boardPixelH;
 
   nextPiece = randomPiece();
   spawnPiece();
@@ -230,9 +246,11 @@ void TetrisActivity::loop() {
 
 void TetrisActivity::drawCell(int screenX, int screenY, bool filled) const {
   if (filled) {
-    renderer.fillRect(screenX + 1, screenY + 1, CELL_SIZE - 2, CELL_SIZE - 2);
+    renderer.fillRect(screenX, screenY, cellSize, cellSize, true);
+    // White border inside for block definition
+    renderer.drawRect(screenX + 1, screenY + 1, cellSize - 2, cellSize - 2, false);
   } else {
-    renderer.drawRect(screenX, screenY, CELL_SIZE, CELL_SIZE);
+    renderer.drawRect(screenX, screenY, cellSize, cellSize);
   }
 }
 
@@ -255,23 +273,24 @@ void TetrisActivity::renderPlaying() const {
   const auto& metrics = UITheme::getInstance().getMetrics();
   int screenW = renderer.getScreenWidth();
 
-  // Score/level at top
-  char scoreBuf[48];
-  snprintf(scoreBuf, sizeof(scoreBuf), "Score:%d  Lv:%d", score, level);
-  renderer.drawText(UI_10_FONT_ID, metrics.contentSidePadding, metrics.topPadding, scoreBuf);
+  // Compact header
+  renderer.drawText(UI_10_FONT_ID, 15, metrics.topPadding, "TETRIS", true, EpdFontFamily::BOLD);
 
   // Board border
-  int bw = BOARD_W * CELL_SIZE;
-  int bh = BOARD_H * CELL_SIZE;
+  int bw = BOARD_W * cellSize;
+  int bh = BOARD_H * cellSize;
+  // Double-line border
   renderer.drawRect(boardOffsetX - 1, boardOffsetY - 1, bw + 2, bh + 2);
+  renderer.drawRect(boardOffsetX - 3, boardOffsetY - 3, bw + 6, bh + 6);
 
   // Draw board
   for (int y = 0; y < BOARD_H; y++) {
     for (int x = 0; x < BOARD_W; x++) {
       if (board[y][x]) {
-        int sx = boardOffsetX + x * CELL_SIZE;
-        int sy = boardOffsetY + y * CELL_SIZE;
-        renderer.fillRect(sx + 1, sy + 1, CELL_SIZE - 2, CELL_SIZE - 2);
+        int sx = boardOffsetX + x * cellSize;
+        int sy = boardOffsetY + y * cellSize;
+        renderer.fillRect(sx, sy, cellSize, cellSize, true);
+        renderer.drawRect(sx + 1, sy + 1, cellSize - 2, cellSize - 2, false);
       }
     }
   }
@@ -284,9 +303,10 @@ void TetrisActivity::renderPlaying() const {
       int bx = pieceX + c;
       int by = pieceY + r;
       if (by >= 0 && by < BOARD_H && bx >= 0 && bx < BOARD_W) {
-        int sx = boardOffsetX + bx * CELL_SIZE;
-        int sy = boardOffsetY + by * CELL_SIZE;
-        renderer.fillRect(sx + 1, sy + 1, CELL_SIZE - 2, CELL_SIZE - 2);
+        int sx = boardOffsetX + bx * cellSize;
+        int sy = boardOffsetY + by * cellSize;
+        renderer.fillRect(sx, sy, cellSize, cellSize, true);
+        renderer.drawRect(sx + 1, sy + 1, cellSize - 2, cellSize - 2, false);
       }
     }
   }
@@ -303,32 +323,57 @@ void TetrisActivity::renderPlaying() const {
         int bx = pieceX + c;
         int by = ghostY + r;
         if (by >= 0 && by < BOARD_H && bx >= 0 && bx < BOARD_W) {
-          int sx = boardOffsetX + bx * CELL_SIZE;
-          int sy = boardOffsetY + by * CELL_SIZE;
-          renderer.drawRect(sx + 2, sy + 2, CELL_SIZE - 4, CELL_SIZE - 4);
+          int sx = boardOffsetX + bx * cellSize;
+          int sy = boardOffsetY + by * cellSize;
+          fillDithered25(renderer, sx, sy, cellSize, cellSize);
+          renderer.drawRect(sx, sy, cellSize, cellSize, true);
         }
       }
     }
   }
 
-  // Next piece preview - draw to the right of the board
-  int previewX = boardOffsetX + bw + 15;
-  int previewY = boardOffsetY + 20;
-  renderer.drawText(SMALL_FONT_ID, previewX, boardOffsetY, "Next:");
+  // Side panel — right of board
+  int panelX = boardOffsetX + bw + 15;
+  int panelY = boardOffsetY;
+  int panelW = screenW - panelX - 10;
+  (void)panelW;
+
+  // Score
+  char scoreBuf2[32];
+  snprintf(scoreBuf2, sizeof(scoreBuf2), "%d", score);
+  renderer.drawText(SMALL_FONT_ID, panelX, panelY, "SCORE");
+  renderer.drawText(UI_12_FONT_ID, panelX, panelY + 14, scoreBuf2, true, EpdFontFamily::BOLD);
+
+  // Level
+  panelY += 50;
+  char levelBuf[16];
+  snprintf(levelBuf, sizeof(levelBuf), "%d", level);
+  renderer.drawText(SMALL_FONT_ID, panelX, panelY, "LEVEL");
+  renderer.drawText(UI_12_FONT_ID, panelX, panelY + 14, levelBuf, true, EpdFontFamily::BOLD);
+
+  // Lines
+  panelY += 50;
+  char linesBuf2[16];
+  snprintf(linesBuf2, sizeof(linesBuf2), "%d", linesCleared);
+  renderer.drawText(SMALL_FONT_ID, panelX, panelY, "LINES");
+  renderer.drawText(UI_12_FONT_ID, panelX, panelY + 14, linesBuf2, true, EpdFontFamily::BOLD);
+
+  // Next piece
+  panelY += 55;
+  renderer.drawText(SMALL_FONT_ID, panelX, panelY, "NEXT");
+  panelY += 16;
+  // Draw next piece at full cell size
+  renderer.drawRect(panelX, panelY, cellSize * 4 + 4, cellSize * 4 + 4);
   uint16_t nextShape = PIECES[nextPiece].shape[0];
   for (int r = 0; r < 4; r++) {
     for (int c = 0; c < 4; c++) {
       if (!getPieceBit(nextShape, r, c)) continue;
-      int sx = previewX + c * (CELL_SIZE / 2);
-      int sy = previewY + r * (CELL_SIZE / 2);
-      renderer.fillRect(sx, sy, CELL_SIZE / 2 - 1, CELL_SIZE / 2 - 1);
+      int sx = panelX + 2 + c * cellSize;
+      int sy = panelY + 2 + r * cellSize;
+      renderer.fillRect(sx, sy, cellSize, cellSize, true);
+      renderer.drawRect(sx + 1, sy + 1, cellSize - 2, cellSize - 2, false);
     }
   }
-
-  // Lines info
-  char linesBuf[24];
-  snprintf(linesBuf, sizeof(linesBuf), "Lines:%d", linesCleared);
-  renderer.drawText(SMALL_FONT_ID, previewX, previewY + 60, linesBuf);
 }
 
 void TetrisActivity::renderGameOver() const {

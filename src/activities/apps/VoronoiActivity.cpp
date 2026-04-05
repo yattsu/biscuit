@@ -10,6 +10,28 @@
 #include "components/UITheme.h"
 #include "fontIds.h"
 
+// 25% gray (light)
+static void fillDithered25(GfxRenderer& r, int x, int y, int w, int h) {
+  for (int dy = 0; dy < h; dy += 2)
+    for (int dx = ((dy/2) % 2); dx < w; dx += 2)
+      r.drawPixel(x + dx, y + dy, true);
+}
+
+// 50% gray (medium) — classic checkerboard
+static void fillDithered50(GfxRenderer& r, int x, int y, int w, int h) {
+  for (int dy = 0; dy < h; dy++)
+    for (int dx = (dy % 2); dx < w; dx += 2)
+      r.drawPixel(x + dx, y + dy, true);
+}
+
+// 75% gray (dark) — inverse of 25%
+static void fillDithered75(GfxRenderer& r, int x, int y, int w, int h) {
+  r.fillRect(x, y, w, h, true);
+  for (int dy = 0; dy < h; dy += 2)
+    for (int dx = ((dy/2) % 2); dx < w; dx += 2)
+      r.drawPixel(x + dx, y + dy, false);
+}
+
 void VoronoiActivity::generate() {
   for (int i = 0; i < numPoints; i++) {
     points[i].x = esp_random() % genWidth;
@@ -87,11 +109,17 @@ void VoronoiActivity::render(RenderLock&&) {
 
   renderer.clearScreen();
 
-  // Fill regions from pre-computed grid
+  // Fill regions from pre-computed grid with 4 dither patterns
   for (int gy = 0; gy < gridH; gy++) {
     for (int gx = 0; gx < gridW; gx++) {
-      if (nearestGrid[gy][gx] % 2 == 0) {
-        renderer.fillRect(gx * GRID_STEP, gy * GRID_STEP, GRID_STEP, GRID_STEP, true);
+      int pattern = nearestGrid[gy][gx] % 4;
+      int px = gx * GRID_STEP;
+      int py = gy * GRID_STEP;
+      switch (pattern) {
+        case 0: break; // white (empty)
+        case 1: fillDithered25(renderer, px, py, GRID_STEP, GRID_STEP); break;
+        case 2: fillDithered50(renderer, px, py, GRID_STEP, GRID_STEP); break;
+        case 3: fillDithered75(renderer, px, py, GRID_STEP, GRID_STEP); break;
       }
     }
   }
@@ -115,12 +143,28 @@ void VoronoiActivity::render(RenderLock&&) {
     }
   }
 
-  // Draw seed points
+  // Draw seed points as small circles with contrasting outline
   for (int i = 0; i < numPoints; i++) {
     int px = points[i].x;
     int py = points[i].y;
-    renderer.fillRect(px - 2, py - 2, 5, 5, !(i % 2 == 0));
-    renderer.drawRect(px - 2, py - 2, 5, 5, true);
+    int cr = 3;
+    // Determine if region is dark or light for contrast
+    bool isDark = (i % 4) >= 2;
+    // Draw filled circle
+    for (int dy = -cr; dy <= cr; dy++) {
+      int dx = 0;
+      while ((dx + 1) * (dx + 1) + dy * dy <= cr * cr) dx++;
+      if (dx > 0) renderer.fillRect(px - dx, py + dy, dx * 2 + 1, 1, !isDark);
+    }
+    // Draw circle outline in contrasting color
+    for (int dy = -cr - 1; dy <= cr + 1; dy++) {
+      for (int ddx = -cr - 1; ddx <= cr + 1; ddx++) {
+        int d2 = ddx * ddx + dy * dy;
+        if (d2 >= (cr) * (cr) && d2 <= (cr + 1) * (cr + 1) + 1) {
+          renderer.drawPixel(px + ddx, py + dy, isDark);
+        }
+      }
+    }
   }
 
   // Info overlay

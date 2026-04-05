@@ -22,6 +22,7 @@ class CasinoActivity final : public Activity {
   enum Screen { LOBBY, SLOTS, BLACKJACK, COINFLIP, HIGHLOW, ROULETTE };
   Screen screen = LOBBY;
   int lobbyIndex = 0;
+  int resetConfirmCount = 0;
   static constexpr int LOBBY_COUNT = 6;  // Slots, BJ, Coin, H/L, Roulette, Reset
   ButtonNavigator buttonNavigator;
 
@@ -32,33 +33,79 @@ class CasinoActivity final : public Activity {
   void saveCredits();
 
   // ---- shared ----
-  static constexpr int BET_OPTIONS[] = {10, 25, 50, 100, 250};
-  static constexpr int NUM_BETS = 5;
+  static constexpr int BET_OPTIONS[] = {10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000, 25000, 50000, 100000};
+  static constexpr int NUM_BETS = 13;
   int betIndex = 1;  // default 25
   int currentBet() const { return BET_OPTIONS[betIndex]; }
   std::string resultMessage;
   int resultAmount = 0;  // positive=win, negative=loss
   bool showingResult = false;
 
-  // ============ SLOTS ============
-  enum SlotsState { SLOTS_BET, SLOTS_SPIN, SLOTS_RESULT };
-  SlotsState slotsState = SLOTS_BET;
+  // ============ SLOTS (overhauled) ============
+  struct SlotSymbolSet {
+    uint8_t ids[8];
+    int8_t payouts[8];  // 3-match multiplier per symbol
+  };
 
-  static constexpr int NUM_SYMBOLS = 6;
-  static constexpr const char* SYMBOL_NAMES[] = {"7", "BAR", "CHR", "BEL", "STR", "DIA"};
-  // Payout multipliers for 3-match (index = symbol): 7=50x, BAR=20x, CHR=10x, BEL=8x, STR=5x, DIA=3x
-  static constexpr int JACKPOT_MULT[] = {50, 20, 10, 8, 5, 3};
+  struct SlotMachineType {
+    const char* name;
+    const char* description;
+    uint8_t numSymbols;
+    SlotSymbolSet symbols;
+    int8_t twoMatchMult;   // payout for 2-of-a-kind (0 = none)
+    uint8_t wildSymbolIdx; // 0xFF = no wild
+    bool hasFreeSpin;
+    bool hasHoldReel;
+    int16_t minBet;
+  };
+
+  static constexpr int NUM_MACHINES = 5;
+  static const SlotMachineType MACHINES[NUM_MACHINES];
+
+  enum SlotsScreen { SLOTS_MENU, SLOTS_PLAY, SLOTS_PAYOUTS, SLOTS_POWERUPS };
+  enum SlotsPlayState { SP_BET, SP_HOLD_SELECT, SP_SPIN, SP_RESULT };
+
+  SlotsScreen slotsScreen = SLOTS_MENU;
+  SlotsPlayState slotsPlayState = SP_BET;
+  int slotsMachineIndex = 0;
+  int slotsMachineMenuIndex = 0;
 
   int reels[3] = {0, 0, 0};
+  bool reelHold[3] = {false, false, false};
+  int holdCursor = 0;
+
   int animFrame = 0;
   unsigned long animStartMs = 0;
-  static constexpr int SPIN_FRAMES = 6;
-  static constexpr unsigned long SPIN_FRAME_MS = 200;
+  static constexpr int SPIN_FRAMES = 12;
+  static constexpr unsigned long SPIN_FRAME_MS = 120;
+  int reelStopFrame[3] = {8, 10, 12};  // when each reel locks to final value
+  int finalReels[3] = {0, 0, 0};
+  bool slotsShowLastResult = false;
+
+  struct SlotsPowerups {
+    uint8_t freeSpins = 0;
+    uint8_t multiplier = 1;
+    bool wildActive = false;
+  };
+  SlotsPowerups slotsPowerups;
+  int powerupMenuIndex = 0;
 
   void slotsLoop();
+  void slotsMenuLoop();
+  void slotsPlayLoop();
+  void slotsPayoutsLoop();
+  void slotsPowerupsLoop();
   void slotsSpin();
   void slotsEvaluate();
+
   void slotsRender();
+  void slotsRenderMenu();
+  void slotsRenderPlay();
+  void slotsRenderPayouts();
+  void slotsRenderPowerups();
+  void drawSlotReel(int x, int y, int symbolId, bool held, bool blur, int blurFrame);
+  void drawReelBlur(int x, int y, int w, int h, int frameOffset);
+  void drawSlotIcon(int cx, int cy, uint8_t symbolId);
 
   // ============ BLACKJACK ============
   enum BJState { BJ_BET, BJ_PLAYING, BJ_DEALER, BJ_RESULT };
@@ -86,10 +133,14 @@ class CasinoActivity final : public Activity {
   void bjRender();
 
   // ============ COIN FLIP ============
-  enum CoinState { COIN_BET, COIN_PICK, COIN_RESULT };
+  enum CoinState { COIN_BET, COIN_PICK, COIN_FLIPPING, COIN_RESULT };
   CoinState coinState = COIN_BET;
   int coinPick = 0;  // 0=heads, 1=tails
   int coinResult = 0;
+  int coinAnimFrame = 0;
+  unsigned long coinAnimStartMs = 0;
+  static constexpr int COIN_ANIM_FRAMES = 5;
+  static constexpr unsigned long COIN_FRAME_MS = 200;
 
   void coinLoop();
   void coinFlip();
@@ -133,5 +184,4 @@ class CasinoActivity final : public Activity {
   void renderCreditsBar();
   void renderBetSelector(int y);
   void drawCard(int x, int y, const Card& c, bool faceDown = false);
-  void drawSlotReel(int x, int y, int symbol);
 };

@@ -10,6 +10,13 @@
 #include "components/UITheme.h"
 #include "fontIds.h"
 
+// 50% gray — classic checkerboard dither
+static void fillDithered50(GfxRenderer& r, int x, int y, int w, int h) {
+  for (int dy = 0; dy < h; dy++)
+    for (int dx = (dy % 2); dx < w; dx += 2)
+      r.drawPixel(x + dx, y + dy, true);
+}
+
 void MinesweeperActivity::onEnter() {
   Activity::onEnter();
   state = DIFFICULTY_SELECT;
@@ -261,7 +268,7 @@ void MinesweeperActivity::render(RenderLock&&) {
   const int availWidth = pageWidth - 2 * metrics.contentSidePadding;
 
   int cellSize = std::min(availWidth / cols, availHeight / rows);
-  if (cellSize > 44) cellSize = 44;
+  if (cellSize > 48) cellSize = 48;
   if (cellSize < 20) cellSize = 20;
 
   const int gridWidth = cellSize * cols;
@@ -282,20 +289,33 @@ void MinesweeperActivity::render(RenderLock&&) {
       if (isRevealed(x, y)) {
         // Revealed cell
         if (isCursor) {
-          // Cursor on revealed: inverted (black fill, white content)
-          renderer.fillRect(px, py, cellSize, cellSize, true);
+          // Cursor on revealed: white fill, 3px thick border, black content
+          renderer.fillRect(px, py, cellSize, cellSize, false);
+          renderer.drawRect(px, py, cellSize, cellSize, true);
+          renderer.drawRect(px + 1, py + 1, cellSize - 2, cellSize - 2, true);
+          renderer.drawRect(px + 2, py + 2, cellSize - 4, cellSize - 4, true);
           if (isMine(x, y)) {
             int cx = px + cellSize / 2;
             int cy = py + cellSize / 2;
-            int r = cellSize / 4;
-            renderer.drawLine(cx - r, cy - r, cx + r, cy + r);
-            renderer.drawLine(cx - r, cy + r, cx + r, cy - r);
+            int mr = cellSize / 4;
+            // Filled circle body
+            for (int dy = -mr; dy <= mr; dy++) {
+              int dx = 0;
+              while ((dx + 1) * (dx + 1) + dy * dy <= mr * mr) dx++;
+              if (dx > 0) renderer.fillRect(cx - dx, cy + dy, dx * 2 + 1, 1, true);
+              else renderer.drawPixel(cx, cy + dy, true);
+            }
+            // 4 radiating lines (cross + X)
+            renderer.drawLine(cx - mr - 2, cy, cx + mr + 2, cy);
+            renderer.drawLine(cx, cy - mr - 2, cx, cy + mr + 2);
+            renderer.drawLine(cx - mr, cy - mr, cx + mr, cy + mr);
+            renderer.drawLine(cx - mr, cy + mr, cx + mr, cy - mr);
           } else {
             int val = getCellValue(x, y);
             if (val > 0) {
               char num[2] = {static_cast<char>('0' + val), 0};
               int tw = renderer.getTextWidth(SMALL_FONT_ID, num, EpdFontFamily::BOLD);
-              renderer.drawText(SMALL_FONT_ID, px + (cellSize - tw) / 2, py + (cellSize - fontH) / 2, num, false,
+              renderer.drawText(SMALL_FONT_ID, px + (cellSize - tw) / 2, py + (cellSize - fontH) / 2, num, true,
                                 EpdFontFamily::BOLD);
             }
           }
@@ -306,9 +326,19 @@ void MinesweeperActivity::render(RenderLock&&) {
             renderer.drawRect(px, py, cellSize, cellSize, true);
             int cx = px + cellSize / 2;
             int cy = py + cellSize / 2;
-            int r = cellSize / 4;
-            renderer.drawLine(cx - r, cy - r, cx + r, cy + r);
-            renderer.drawLine(cx - r, cy + r, cx + r, cy - r);
+            int mr = cellSize / 4;
+            // Filled circle body
+            for (int dy = -mr; dy <= mr; dy++) {
+              int dx = 0;
+              while ((dx + 1) * (dx + 1) + dy * dy <= mr * mr) dx++;
+              if (dx > 0) renderer.fillRect(cx - dx, cy + dy, dx * 2 + 1, 1, true);
+              else renderer.drawPixel(cx, cy + dy, true);
+            }
+            // 4 radiating lines (cross + X)
+            renderer.drawLine(cx - mr - 2, cy, cx + mr + 2, cy);
+            renderer.drawLine(cx, cy - mr - 2, cx, cy + mr + 2);
+            renderer.drawLine(cx - mr, cy - mr, cx + mr, cy + mr);
+            renderer.drawLine(cx - mr, cy + mr, cx + mr, cy - mr);
           } else {
             int val = getCellValue(x, y);
             if (val > 0) {
@@ -327,21 +357,44 @@ void MinesweeperActivity::render(RenderLock&&) {
         bool flagged = isFlagged(x, y);
 
         if (isCursor) {
-          // Cursor on unrevealed: inverted (black fill)
-          renderer.fillRect(px, py, cellSize, cellSize, true);
+          // Cursor on unrevealed: dithered fill, 3px thick border
+          renderer.fillRect(px, py, cellSize, cellSize, false);
+          fillDithered50(renderer, px, py, cellSize, cellSize);
+          renderer.drawRect(px, py, cellSize, cellSize, true);
+          renderer.drawRect(px + 1, py + 1, cellSize - 2, cellSize - 2, true);
+          renderer.drawRect(px + 2, py + 2, cellSize - 4, cellSize - 4, true);
           if (flagged) {
-            int tw = renderer.getTextWidth(SMALL_FONT_ID, "F", EpdFontFamily::BOLD);
-            renderer.drawText(SMALL_FONT_ID, px + (cellSize - tw) / 2, py + (cellSize - fontH) / 2, "F", false,
-                              EpdFontFamily::BOLD);
+            int cx = px + cellSize / 2;
+            int cy = py + cellSize / 2;
+            int fs = cellSize / 4;
+            // Pole
+            renderer.fillRect(cx + fs / 3, cy - fs, 2, fs * 2, true);
+            // Triangle flag
+            for (int dy = 0; dy < fs; dy++) {
+              int fw = fs - dy;
+              renderer.fillRect(cx + fs / 3 - fw, cy - fs + dy, fw, 1, true);
+            }
+            // Base
+            renderer.fillRect(cx + fs / 3 - fs / 2, cy + fs, fs, 2, true);
           }
         } else {
-          // Normal unrevealed: white with border
+          // Normal unrevealed: dithered fill with border
           renderer.fillRect(px, py, cellSize, cellSize, false);
+          fillDithered50(renderer, px, py, cellSize, cellSize);
           renderer.drawRect(px, py, cellSize, cellSize, true);
           if (flagged) {
-            int tw = renderer.getTextWidth(SMALL_FONT_ID, "F", EpdFontFamily::BOLD);
-            renderer.drawText(SMALL_FONT_ID, px + (cellSize - tw) / 2, py + (cellSize - fontH) / 2, "F", true,
-                              EpdFontFamily::BOLD);
+            int cx = px + cellSize / 2;
+            int cy = py + cellSize / 2;
+            int fs = cellSize / 4;
+            // Pole
+            renderer.fillRect(cx + fs / 3, cy - fs, 2, fs * 2, true);
+            // Triangle flag
+            for (int dy = 0; dy < fs; dy++) {
+              int fw = fs - dy;
+              renderer.fillRect(cx + fs / 3 - fw, cy - fs + dy, fw, 1, true);
+            }
+            // Base
+            renderer.fillRect(cx + fs / 3 - fs / 2, cy + fs, fs, 2, true);
           }
         }
       }

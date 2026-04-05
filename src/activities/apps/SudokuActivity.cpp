@@ -10,6 +10,13 @@
 #include "components/UITheme.h"
 #include "fontIds.h"
 
+// 25% gray (light) — every other pixel in checkerboard on even rows only
+static void fillDithered25(GfxRenderer& r, int x, int y, int w, int h) {
+  for (int dy = 0; dy < h; dy += 2)
+    for (int dx = ((dy/2) % 2); dx < w; dx += 2)
+      r.drawPixel(x + dx, y + dy, true);
+}
+
 bool SudokuActivity::isValid(const uint8_t b[9][9], int row, int col, uint8_t num) const {
   for (int i = 0; i < 9; i++) {
     if (b[row][i] == num) return false;
@@ -195,14 +202,28 @@ void SudokuActivity::render(RenderLock&&) {
       bool isCursor = (c == cursorX && r == cursorY && state == PLAYING);
 
       if (isCursor) {
-        renderer.fillRect(px, py, cellSize, cellSize, true);
+        // 3px thick cursor border
+        renderer.drawRect(px, py, cellSize, cellSize, true);
+        renderer.drawRect(px + 1, py + 1, cellSize - 2, cellSize - 2, true);
+        renderer.drawRect(px + 2, py + 2, cellSize - 4, cellSize - 4, true);
+      }
+
+      // Fixed cells get light dithered background
+      if (fixed[r][c] && !isCursor) {
+        fillDithered25(renderer, px, py, cellSize, cellSize);
+      }
+
+      // Highlight cells with same number as cursor
+      if (state == PLAYING && !isCursor && board[r][c] > 0 &&
+          board[cursorY][cursorX] > 0 && board[r][c] == board[cursorY][cursorX]) {
+        fillDithered25(renderer, px, py, cellSize, cellSize);
       }
 
       if (board[r][c] > 0) {
         char num[2] = {static_cast<char>('0' + board[r][c]), 0};
         EpdFontFamily::Style style = fixed[r][c] ? EpdFontFamily::BOLD : EpdFontFamily::REGULAR;
         int tw = renderer.getTextWidth(SMALL_FONT_ID, num, style);
-        renderer.drawText(SMALL_FONT_ID, px + (cellSize - tw) / 2, py + (cellSize - fontH) / 2, num, !isCursor,
+        renderer.drawText(SMALL_FONT_ID, px + (cellSize - tw) / 2, py + (cellSize - fontH) / 2, num, true,
                           style);
       }
     }
@@ -216,14 +237,14 @@ void SudokuActivity::render(RenderLock&&) {
 
     // Vertical line
     if (thick) {
-      renderer.drawRect(lx - 1, gridY, 2, gridSize, true);
+      renderer.fillRect(lx - 1, gridY, 3, gridSize, true);
     } else {
       renderer.drawLine(lx, gridY, lx, gridY + gridSize);
     }
 
     // Horizontal line
     if (thick) {
-      renderer.drawRect(gridX, ly - 1, gridSize, 2, true);
+      renderer.fillRect(gridX, ly - 1, gridSize, 3, true);
     } else {
       renderer.drawLine(gridX, ly, gridX + gridSize, ly);
     }

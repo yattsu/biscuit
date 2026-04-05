@@ -8,6 +8,20 @@
 #include "components/UITheme.h"
 #include "fontIds.h"
 
+// 25% gray (light dither) for die face texture
+static void fillDithered25(GfxRenderer& r, int x, int y, int w, int h) {
+  for (int dy = 0; dy < h; dy += 2)
+    for (int dx = ((dy/2) % 2); dx < w; dx += 2)
+      r.drawPixel(x + dx, y + dy, true);
+}
+
+// 50% gray (medium) — for shadow dithering
+static void fillDithered50(GfxRenderer& r, int x, int y, int w, int h) {
+  for (int dy = 0; dy < h; dy++)
+    for (int dx = (dy % 2); dx < w; dx += 2)
+      r.drawPixel(x + dx, y + dy, true);
+}
+
 constexpr int DiceRollerActivity::DIE_TYPES[];
 
 uint32_t DiceRollerActivity::randomRange(uint32_t max) { return (esp_random() % max) + 1; }
@@ -101,7 +115,7 @@ static void drawPip(GfxRenderer& r, int cx, int cy, int radius) {
 
 // Draw d6 pip pattern inside a die face
 static void drawD6Pips(GfxRenderer& r, int x, int y, int size, int value) {
-  const int pip = size / 8;  // pip radius
+  const int pip = size / 7;  // pip radius — slightly larger for visibility
   const int margin = size / 4;
   const int left = x + margin;
   const int right = x + size - margin;
@@ -152,10 +166,12 @@ static void drawD6Pips(GfxRenderer& r, int x, int y, int size, int value) {
 
 // Draw a single die face at given position
 static void drawDieFace(GfxRenderer& r, int x, int y, int size, int value, int sides) {
-  // Shadow (offset black rect)
-  r.fillRect(x + 4, y + 4, size, size, true);
+  // Shadow (dithered 50% for more natural look)
+  fillDithered50(r, x + 4, y + 4, size, size);
   // White face
   r.fillRect(x, y, size, size, false);
+  // Subtle ivory texture
+  fillDithered25(r, x + 4, y + 4, size - 8, size - 8);
   // Border (double line for weight)
   r.drawRect(x, y, size, size, true);
   r.drawRect(x + 1, y + 1, size - 2, size - 2, true);
@@ -282,6 +298,12 @@ void DiceRollerActivity::renderRolling() const {
   DiePos positions[6];
   computeScatteredPositions(positions, count, pageWidth, pageHeight, dieSize, headerBottom, diceResults);
 
+  // Add bounce jitter during animation
+  for (int i = 0; i < count; i++) {
+    positions[i].x += ((int)(esp_random() % 11) - 5);
+    positions[i].y += ((int)(esp_random() % 11) - 5);
+  }
+
   for (int i = 0; i < count; i++) {
     drawDieFace(renderer, positions[i].x, positions[i].y, dieSize, diceResults[i], sides);
   }
@@ -319,6 +341,9 @@ void DiceRollerActivity::renderResult() const {
   // Die description + result
   char dieBuf[32];
   snprintf(dieBuf, sizeof(dieBuf), "%dd%d", dieCount, sides);
+
+  // Box around the total line for emphasis (drawn before text so text renders on top)
+  renderer.drawRect(40, bottomY - 6, pageWidth - 80, 32, true);
 
   if (dieCount > 1) {
     // Show breakdown: "2d6: 3 + 5 = 8"

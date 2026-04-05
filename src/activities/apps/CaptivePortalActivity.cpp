@@ -55,6 +55,7 @@ void CaptivePortalActivity::onExit() {
   Activity::onExit();
   stopPortal();
   portalInstance = nullptr;
+  RADIO.shutdown();
 }
 
 void CaptivePortalActivity::loadTemplates() {

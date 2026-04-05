@@ -3,16 +3,21 @@
 #include <I18n.h>
 
 #include "AirTagTestActivity.h"
+#include "ApClonerActivity.h"
 #include "AppCategoryActivity.h"
 #include "BeaconTestActivity.h"
 #include "BleBeaconActivity.h"
 #include "BleKeyboardActivity.h"
+#include "BleProximityActivity.h"
 #include "BleScannerActivity.h"
+#include "CredentialViewerActivity.h"
 #include "CasinoActivity.h"
+#include "LootBoxActivity.h"
 #include "ChessActivity.h"
 #include "DiceRollerActivity.h"
 #include "DnsLookupActivity.h"
 #include "EtchASketchActivity.h"
+#include "HttpClientActivity.h"
 #include "CaptivePortalActivity.h"
 #include "GameOfLifeActivity.h"
 #include "HostScannerActivity.h"
@@ -24,18 +29,31 @@
 #include "PasswordManagerActivity.h"
 #include "PcapCaptureActivity.h"
 #include "PingActivity.h"
+#include "ProbeSnifferActivity.h"
 #include "PomodoroActivity.h"
 #include "QrGeneratorActivity.h"
 #include "SnakeActivity.h"
 #include "StopwatchActivity.h"
 #include "SudokuActivity.h"
 #include "TetrisActivity.h"
+#include "SdFileBrowserActivity.h"
 #include "TextViewerActivity.h"
 #include "UnitConverterActivity.h"
 #include "VoronoiActivity.h"
 #include "WifiConnectActivity.h"
 #include "WifiTestActivity.h"
+#include "WardrivingActivity.h"
+#include "SignalMeterActivity.h"
 #include "WifiScannerActivity.h"
+#include "DeauthDetectorActivity.h"
+#include "MacChangerActivity.h"
+#include "MatrixRainActivity.h"
+#include "RogueApDetectorActivity.h"
+#include "MazeActivity.h"
+#include "CalculatorActivity.h"
+#include "BleExplorerActivity.h"
+#include "ChannelAnalyzerActivity.h"
+#include "MdnsBrowserActivity.h"
 #include "components/UITheme.h"
 #include "fontIds.h"
 
@@ -63,9 +81,15 @@ void AppsMenuActivity::loop() {
         std::vector<AppCategoryActivity::AppEntry> e = {
             {tr(STR_WIFI_CONNECT), [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<WifiConnectActivity>(r, m); }},
             {tr(STR_WIFI_SCANNER), [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<WifiScannerActivity>(r, m); }},
+            {"Wardriving", [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<WardrivingActivity>(r, m); }},
             {tr(STR_HOST_SCANNER), [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<HostScannerActivity>(r, m); }},
             {tr(STR_PING_TOOL), [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<PingActivity>(r, m); }},
             {tr(STR_DNS_LOOKUP), [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<DnsLookupActivity>(r, m); }},
+            {"Signal Meter", [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<SignalMeterActivity>(r, m); }},
+            {"HTTP Client", [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<HttpClientActivity>(r, m); }},
+            {"Channel Analyzer", [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<ChannelAnalyzerActivity>(r, m); }},
+            {"mDNS Browser", [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<MdnsBrowserActivity>(r, m); }},
+            {"Rogue AP Detector", [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<RogueApDetectorActivity>(r, m); }},
         };
         app = std::make_unique<AppCategoryActivity>(renderer, mappedInput, tr(STR_NETWORK_TOOLS), std::move(e));
         break;
@@ -81,13 +105,21 @@ void AppsMenuActivity::loop() {
             {tr(STR_BLE_BEACON), [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<BleBeaconActivity>(r, m); }},
             {tr(STR_AIRTAG_TEST), [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<AirTagTestActivity>(r, m); }},
             {tr(STR_BLE_KEYBOARD), [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<BleKeyboardActivity>(r, m); }},
+            {"Probe Sniffer", [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<ProbeSnifferActivity>(r, m); }},
+            {"BLE Proximity", [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<BleProximityActivity>(r, m); }},
+            {"Credential Viewer", [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<CredentialViewerActivity>(r, m); }},
+            {"MAC Changer", [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<MacChangerActivity>(r, m); }},
+            {"AP Cloner", [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<ApClonerActivity>(r, m); }},
+            {"Deauth Detector", [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<DeauthDetectorActivity>(r, m); }},
+            {"BLE Explorer", [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<BleExplorerActivity>(r, m); }},
         };
         app = std::make_unique<AppCategoryActivity>(renderer, mappedInput, tr(STR_WIRELESS_TESTING), std::move(e), true);
         break;
       }
       case 2: {
         std::vector<AppCategoryActivity::AppEntry> e = {
-	    {"Casino", [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<CasinoActivity>(r, m); }},
+	    {"Casino",    [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<CasinoActivity>(r, m); }},
+            {"Loot Box",  [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<LootBoxActivity>(r, m); }},
             {tr(STR_MINESWEEPER), [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<MinesweeperActivity>(r, m); }},
             {tr(STR_SUDOKU), [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<SudokuActivity>(r, m); }},
             {tr(STR_CHESS), [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<ChessActivity>(r, m); }},
@@ -96,6 +128,7 @@ void AppsMenuActivity::loop() {
             {tr(STR_SNAKE), [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<SnakeActivity>(r, m); }},
             {tr(STR_TETRIS), [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<TetrisActivity>(r, m); }},
             {tr(STR_DICE_ROLLER), [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<DiceRollerActivity>(r, m); }},
+            {"Maze", [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<MazeActivity>(r, m); }},
         };
         app = std::make_unique<AppCategoryActivity>(renderer, mappedInput, tr(STR_GAMES), std::move(e));
         break;
@@ -111,6 +144,9 @@ void AppsMenuActivity::loop() {
             {tr(STR_UNIT_CONVERTER), [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<UnitConverterActivity>(r, m); }},
             {tr(STR_TEXT_VIEWER), [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<TextViewerActivity>(r, m); }},
             {tr(STR_ETCH_A_SKETCH), [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<EtchASketchActivity>(r, m); }},
+            {"SD File Browser", [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<SdFileBrowserActivity>(r, m); }},
+            {"Calculator", [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<CalculatorActivity>(r, m); }},
+            {"Matrix Rain", [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<MatrixRainActivity>(r, m); }},
         };
         app = std::make_unique<AppCategoryActivity>(renderer, mappedInput, tr(STR_UTILITIES), std::move(e));
         break;

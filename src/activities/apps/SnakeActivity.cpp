@@ -8,6 +8,13 @@
 #include "components/UITheme.h"
 #include "fontIds.h"
 
+// 25% gray (light) — every other pixel in checkerboard on even rows only
+static void fillDithered25(GfxRenderer& r, int x, int y, int w, int h) {
+  for (int dy = 0; dy < h; dy += 2)
+    for (int dx = ((dy / 2) % 2); dx < w; dx += 2)
+      r.drawPixel(x + dx, y + dy, true);
+}
+
 void SnakeActivity::onEnter() {
   Activity::onEnter();
   initGame();
@@ -159,28 +166,63 @@ void SnakeActivity::render(RenderLock&&) {
 void SnakeActivity::renderPlaying() const {
   const auto& metrics = UITheme::getInstance().getMetrics();
 
-  // Score
-  char scoreBuf[32];
-  snprintf(scoreBuf, sizeof(scoreBuf), "Score: %d", score);
-  renderer.drawText(UI_10_FONT_ID, metrics.contentSidePadding, metrics.topPadding, scoreBuf);
-
-  // Grid border
+  // Double-line border
   renderer.drawRect(offsetX - 1, offsetY - 1, gridW * CELL_SIZE + 2, gridH * CELL_SIZE + 2);
+  renderer.drawRect(offsetX - 3, offsetY - 3, gridW * CELL_SIZE + 6, gridH * CELL_SIZE + 6);
 
-  // Snake
-  for (auto& seg : snake) {
-    int px = offsetX + seg.x * CELL_SIZE;
-    int py = offsetY + seg.y * CELL_SIZE;
-    renderer.fillRect(px + 1, py + 1, CELL_SIZE - 2, CELL_SIZE - 2);
+  // Subtle background texture
+  fillDithered25(renderer, offsetX, offsetY, gridW * CELL_SIZE, gridH * CELL_SIZE);
+
+  // Snake body (with 1px white gap between segments for articulated look)
+  for (size_t i = 0; i < snake.size(); i++) {
+    int px = offsetX + snake[i].x * CELL_SIZE;
+    int py = offsetY + snake[i].y * CELL_SIZE;
+    if (i == 0) {
+      // Head — filled with eyes
+      renderer.fillRect(px + 1, py + 1, CELL_SIZE - 2, CELL_SIZE - 2);
+      // Eyes based on direction
+      if (dirX == 1) { // right
+        renderer.drawPixel(px + CELL_SIZE - 3, py + 2, false);
+        renderer.drawPixel(px + CELL_SIZE - 3, py + CELL_SIZE - 3, false);
+      } else if (dirX == -1) { // left
+        renderer.drawPixel(px + 2, py + 2, false);
+        renderer.drawPixel(px + 2, py + CELL_SIZE - 3, false);
+      } else if (dirY == -1) { // up
+        renderer.drawPixel(px + 2, py + 2, false);
+        renderer.drawPixel(px + CELL_SIZE - 3, py + 2, false);
+      } else { // down
+        renderer.drawPixel(px + 2, py + CELL_SIZE - 3, false);
+        renderer.drawPixel(px + CELL_SIZE - 3, py + CELL_SIZE - 3, false);
+      }
+    } else {
+      // Body segment with 1px gap (draw slightly smaller)
+      renderer.fillRect(px + 2, py + 2, CELL_SIZE - 4, CELL_SIZE - 4);
+    }
   }
 
-  // Food
+  // Food — apple shape
   {
     int px = offsetX + food.x * CELL_SIZE;
     int py = offsetY + food.y * CELL_SIZE;
-    renderer.drawRect(px + 2, py + 2, CELL_SIZE - 4, CELL_SIZE - 4);
-    renderer.drawPixel(px + CELL_SIZE / 2, py + CELL_SIZE / 2);
+    int cx = px + CELL_SIZE / 2;
+    int cy = py + CELL_SIZE / 2 + 1;
+    int r = CELL_SIZE / 3;
+    // Filled circle body
+    for (int dy = -r; dy <= r; dy++) {
+      int dx = 0;
+      while ((dx + 1) * (dx + 1) + dy * dy <= r * r) dx++;
+      if (dx > 0) renderer.fillRect(cx - dx, cy + dy, dx * 2 + 1, 1, true);
+      else renderer.drawPixel(cx, cy + dy, true);
+    }
+    // Stem on top
+    renderer.fillRect(cx, cy - r - 2, 2, 3, true);
   }
+
+  // Score (drawn below the grid)
+  int scoreY = offsetY + gridH * CELL_SIZE + 10;
+  char scoreBuf[48];
+  snprintf(scoreBuf, sizeof(scoreBuf), "Score: %d  Length: %d", score, (int)snake.size());
+  renderer.drawText(UI_10_FONT_ID, metrics.contentSidePadding, scoreY, scoreBuf, true, EpdFontFamily::BOLD);
 
   const auto labels = mappedInput.mapLabels(tr(STR_BACK), "", "", "");
   GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);

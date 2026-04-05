@@ -35,10 +35,10 @@ void PcapCaptureActivity::onPacket(const uint8_t* buf, uint16_t len) {
 }
 
 bool PcapCaptureActivity::isEapolPacket(const uint8_t* data, uint16_t len) const {
-  // Check for EAPOL ethertype 0x888E in 802.11 data frames
-  // Simplified check: look for 0x88 0x8E in the packet
-  if (len < 34) return false;
-  for (int i = 24; i < len - 1 && i < 40; i++) {
+  if (len < 36) return false;
+  // Check both standard data frame offset (24+6=30) and QoS data frame offset (26+6=32)
+  // LLC/SNAP header ends with ethertype at offset 30-31 or 32-33
+  for (int i = 30; i <= 33 && i + 1 < len; i++) {
     if (data[i] == 0x88 && data[i + 1] == 0x8E) return true;
   }
   return false;

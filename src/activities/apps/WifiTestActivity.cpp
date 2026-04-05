@@ -52,6 +52,7 @@ void WifiTestActivity::onExit() {
   Activity::onExit();
   esp_wifi_set_promiscuous(false);
   WiFi.mode(WIFI_OFF);
+  RADIO.shutdown();
 }
 
 void WifiTestActivity::startScan() {

@@ -29,9 +29,9 @@ class DiceRollerActivity final : public Activity {
 
   // Rolling animation
   int animFrame = 0;
-  static constexpr int ANIM_FRAMES = 3;
+  static constexpr int ANIM_FRAMES = 4;
   unsigned long animStartMs = 0;
-  static constexpr unsigned long ANIM_FRAME_MS = 150;
+  static constexpr unsigned long ANIM_FRAME_MS = 250;
 
   // Results
   std::vector<int> diceResults;

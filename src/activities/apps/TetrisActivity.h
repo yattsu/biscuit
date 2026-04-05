@@ -24,7 +24,7 @@ class TetrisActivity final : public Activity {
   // Board
   static constexpr int BOARD_W = 10;
   static constexpr int BOARD_H = 20;
-  static constexpr int CELL_SIZE = 20;
+  int cellSize = 20;
   uint8_t board[BOARD_H][BOARD_W] = {};  // 0 = empty, 1 = filled
 
   // Piece rendering offset
