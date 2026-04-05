@@ -32,6 +32,7 @@ class CaptivePortalActivity final : public Activity {
   std::string apSsid;
   int capturedCount = 0;
   std::string lastUsername;
+  std::string lastPassword;
 
   std::unique_ptr<WebServer> webServer;
   std::unique_ptr<DNSServer> dnsServer;
