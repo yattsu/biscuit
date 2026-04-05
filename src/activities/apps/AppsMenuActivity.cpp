@@ -40,6 +40,7 @@
 #include "WardrivingActivity.h"
 #include "WifiScannerActivity.h"
 #include "NetworkMonitorActivity.h"
+#include "SsidChannelActivity.h"
 #include "MacChangerActivity.h"
 #include "MatrixRainActivity.h"
 #include "MazeActivity.h"
@@ -49,29 +50,111 @@
 #include "BatteryMonitorActivity.h"
 #include "DeviceInfoActivity.h"
 #include "BackgroundManagerActivity.h"
+#include "SweepActivity.h"
+#include "NetworkChangeActivity.h"
+#include "CrowdDensityActivity.h"
+#include "DeviceFingerprinterActivity.h"
+#include "PerimeterWatchActivity.h"
+#include "VendorOuiActivity.h"
+#include "ApHistoryLoggerActivity.h"
+#include "BreadcrumbTrailActivity.h"
+#include "VehicleFinderActivity.h"
+#include "TransitAlertActivity.h"
+#include "AutomationActivity.h"
+#include "TotpActivity.h"
+#include "EventLoggerActivity.h"
+#include "FlashcardActivity.h"
+#include "CipherActivity.h"
+#include "OtpGeneratorActivity.h"
+#include "HabitTrackerActivity.h"
+#include "ReadingStatsActivity.h"
+#include "TrackerDetectorActivity.h"
+#include "BleContactExchangeActivity.h"
+#include "RfSilenceActivity.h"
+#include "EmergencyActivity.h"
+#include "MeshChatActivity.h"
+#include "MedicalCardActivity.h"
+#include "BulletinBoardActivity.h"
+#include "DeadDropActivity.h"
+#include "QuickWipeActivity.h"
+#include "ScreenDecoyActivity.h"
+#include "SecurityPinActivity.h"
 #include "activities/home/FileBrowserActivity.h"
 #include "activities/home/RecentBooksActivity.h"
 #include "activities/browser/OpdsBookBrowserActivity.h"
+#include "activities/settings/SettingsActivity.h"
+#include "activities/network/NetworkModeSelectionActivity.h"
 #include "components/UITheme.h"
 #include "fontIds.h"
+#include <esp_system.h>
+#include <esp_timer.h>
+#include <WiFi.h>
+#include <HalPowerManager.h>
 
 void AppsMenuActivity::onEnter() {
   Activity::onEnter();
   selectorIndex = 0;
+  refreshSystemInfo();
   requestUpdate();
 }
 
 void AppsMenuActivity::loop() {
-  buttonNavigator.onNext([this] {
-    selectorIndex = ButtonNavigator::nextIndex(selectorIndex, ITEM_COUNT);
-    requestUpdate();
-  });
+  // === 2D GRID NAVIGATION ===
+  // Left/Right (front buttons) move between columns
+  // Up/Down (side volume buttons) move between rows
 
-  buttonNavigator.onPrevious([this] {
-    selectorIndex = ButtonNavigator::previousIndex(selectorIndex, ITEM_COUNT);
+  if (mappedInput.wasReleased(MappedInputManager::Button::Right)) {
+    int col = getCol();
+    int row = getRow();
+    col++;
+    if (col >= COLS) {
+      col = 0;
+      row = (row + 1) % ROWS;
+    }
+    selectorIndex = row * COLS + col;
+    if (selectorIndex >= ITEM_COUNT) selectorIndex = 0;
     requestUpdate();
-  });
+  }
 
+  if (mappedInput.wasReleased(MappedInputManager::Button::Left)) {
+    int col = getCol();
+    int row = getRow();
+    col--;
+    if (col < 0) {
+      col = COLS - 1;
+      row = (row - 1 + ROWS) % ROWS;
+    }
+    selectorIndex = row * COLS + col;
+    if (selectorIndex >= ITEM_COUNT) selectorIndex = ITEM_COUNT - 1;
+    requestUpdate();
+  }
+
+  if (mappedInput.wasReleased(MappedInputManager::Button::Down)) {
+    int col = getCol();
+    int row = (getRow() + 1) % ROWS;
+    selectorIndex = row * COLS + col;
+    if (selectorIndex >= ITEM_COUNT) selectorIndex = col;
+    requestUpdate();
+  }
+
+  if (mappedInput.wasReleased(MappedInputManager::Button::Up)) {
+    int col = getCol();
+    int row = (getRow() - 1 + ROWS) % ROWS;
+    selectorIndex = row * COLS + col;
+    if (selectorIndex >= ITEM_COUNT) {
+      row = (row - 1 + ROWS) % ROWS;
+      selectorIndex = row * COLS + col;
+    }
+    requestUpdate();
+  }
+
+  // Periodic info refresh
+  if (millis() - lastInfoRefresh > INFO_REFRESH_MS) {
+    refreshSystemInfo();
+    requestUpdate();
+  }
+
+  // === CONFIRM: open category ===
   if (mappedInput.wasReleased(MappedInputManager::Button::Confirm)) {
     std::unique_ptr<Activity> app;
     switch (selectorIndex) {
@@ -87,6 +170,12 @@ void AppsMenuActivity::loop() {
             {"mDNS Browser", [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<MdnsBrowserActivity>(r, m); }},
             {tr(STR_BLE_SCANNER), [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<BleScannerActivity>(r, m); }},
             {"Wardriving", [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<WardrivingActivity>(r, m); }},
+            {"Tracker Detector", [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<TrackerDetectorActivity>(r, m); }},
+            {"Security Sweep", [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<SweepActivity>(r, m); }},
+            {"Network Change", [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<NetworkChangeActivity>(r, m); }},
+            {"Crowd Density", [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<CrowdDensityActivity>(r, m); }},
+            {"Vendor Lookup", [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<VendorOuiActivity>(r, m); }},
+            {"AP History", [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<ApHistoryLoggerActivity>(r, m); }},
         };
         app = std::make_unique<AppCategoryActivity>(renderer, mappedInput, tr(STR_NETWORK_TOOLS), std::move(e));
         break;
@@ -101,6 +190,8 @@ void AppsMenuActivity::loop() {
             {"MAC Changer", [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<MacChangerActivity>(r, m); }},
             {"AP Cloner", [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<ApClonerActivity>(r, m); }},
             {"Network Monitor", [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<NetworkMonitorActivity>(r, m); }},
+            {"SSID Channel", [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<SsidChannelActivity>(r, m); }},
+            {"Device Fingerprint", [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<DeviceFingerprinterActivity>(r, m); }},
             {tr(STR_BEACON_TEST), [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<BeaconTestActivity>(r, m); }},
             {tr(STR_WIFI_TEST), [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<WifiTestActivity>(r, m); }},
             {tr(STR_CAPTIVE_PORTAL), [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<CaptivePortalActivity>(r, m); }},
@@ -122,6 +213,20 @@ void AppsMenuActivity::loop() {
             {tr(STR_PASSWORD_MANAGER), [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<PasswordManagerActivity>(r, m); }},
             {"SD File Browser", [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<SdFileBrowserActivity>(r, m); }},
             {tr(STR_ETCH_A_SKETCH), [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<EtchASketchActivity>(r, m); }},
+            {"Mesh Chat", [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<MeshChatActivity>(r, m); }},
+            {"Medical Card", [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<MedicalCardActivity>(r, m); }},
+            {"Contact Exchange", [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<BleContactExchangeActivity>(r, m); }},
+            {"Dead Drop", [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<DeadDropActivity>(r, m); }},
+            {"Bulletin Board", [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<BulletinBoardActivity>(r, m); }},
+            {"Breadcrumb Trail", [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<BreadcrumbTrailActivity>(r, m); }},
+            {"Vehicle Finder", [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<VehicleFinderActivity>(r, m); }},
+            {"Transit Alert", [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<TransitAlertActivity>(r, m); }},
+            {"Authenticator", [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<TotpActivity>(r, m); }},
+            {"Event Logger", [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<EventLoggerActivity>(r, m); }},
+            {"Flashcards", [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<FlashcardActivity>(r, m); }},
+            {"Cipher Tools", [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<CipherActivity>(r, m); }},
+            {"OTP Generator", [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<OtpGeneratorActivity>(r, m); }},
+            {"Habit Tracker", [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<HabitTrackerActivity>(r, m); }},
         };
         app = std::make_unique<AppCategoryActivity>(renderer, mappedInput, tr(STR_UTILITIES), std::move(e));
         break;
@@ -147,10 +252,20 @@ void AppsMenuActivity::loop() {
       case 4: {
         // System
         std::vector<AppCategoryActivity::AppEntry> e = {
+            {"Settings", [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<SettingsActivity>(r, m); }},
+            {"File Transfer", [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<NetworkModeSelectionActivity>(r, m); }},
             {"Task Manager", [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<TaskManagerActivity>(r, m); }},
-            {"Battery Monitor", [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<BatteryMonitorActivity>(r, m); }},
+            {"Battery", [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<BatteryMonitorActivity>(r, m); }},
             {"Device Info", [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<DeviceInfoActivity>(r, m); }},
             {"Background", [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<BackgroundManagerActivity>(r, m); }},
+            {"Quick Wipe", [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<QuickWipeActivity>(r, m); }},
+            {"PIN Security", [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<SecurityPinActivity>(r, m); }},
+            {"RF Silence", [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<RfSilenceActivity>(r, m); }},
+            {"Screen Decoy", [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<ScreenDecoyActivity>(r, m); }},
+            {"Emergency", [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<EmergencyActivity>(r, m); }},
+            {"Perimeter Watch", [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<PerimeterWatchActivity>(r, m); }},
+            {"Automation", [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<AutomationActivity>(r, m); }},
+            {"Reading Stats", [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<ReadingStatsActivity>(r, m); }},
         };
         app = std::make_unique<AppCategoryActivity>(renderer, mappedInput, "System", std::move(e));
         break;
@@ -170,40 +285,150 @@ void AppsMenuActivity::loop() {
     if (app) activityManager.pushActivity(std::move(app));
   }
 
-  if (mappedInput.wasPressed(MappedInputManager::Button::Back)) {
-    finish();
-  }
+  // Back button ignored on main screen — use Power button to sleep
 }
 
 void AppsMenuActivity::render(RenderLock&&) {
-  const auto& metrics = UITheme::getInstance().getMetrics();
+  renderer.clearScreen();
+
   const auto pageWidth = renderer.getScreenWidth();
   const auto pageHeight = renderer.getScreenHeight();
 
-  renderer.clearScreen();
+  // === STATUS BAR (top 44px) ===
+  drawStatusBar();
 
-  GUI.drawHeader(renderer, Rect{0, metrics.topPadding, pageWidth, metrics.headerHeight}, tr(STR_APPS));
+  // === TILE GRID ===
+  constexpr int statusBarH = 44;
+  constexpr int buttonHintsH = 40;
+  constexpr int sidePad = 16;
+  constexpr int tileGap = 10;
+  constexpr int gridTop = statusBarH + 4;
+  const int gridBottom = pageHeight - buttonHintsH - 4;
+  const int gridHeight = gridBottom - gridTop;
 
-  const int contentTop = metrics.topPadding + metrics.headerHeight + metrics.verticalSpacing;
-  const int contentHeight = pageHeight - contentTop - metrics.buttonHintsHeight - metrics.verticalSpacing;
+  const int tileW = (pageWidth - sidePad * 2 - tileGap) / COLS;
+  const int tileH = (gridHeight - tileGap * (ROWS - 1)) / ROWS;
 
-  GUI.drawList(
-      renderer, Rect{0, contentTop, pageWidth, contentHeight}, ITEM_COUNT, selectorIndex,
-      [](int index) -> std::string {
-        switch (index) {
-          case 0: return tr(STR_NETWORK_TOOLS);
-          case 1: return tr(STR_WIRELESS_TESTING);
-          case 2: return tr(STR_UTILITIES);
-          case 3: return tr(STR_GAMES);
-          case 4: return "System";
-          case 5: return "Reader";
-          default: return "";
-        }
-      },
-      nullptr, nullptr);
+  for (int i = 0; i < ITEM_COUNT; i++) {
+    int row = i / COLS;
+    int col = i % COLS;
+    int x = sidePad + col * (tileW + tileGap);
+    int y = gridTop + row * (tileH + tileGap);
+    drawTile(i, x, y, tileW, tileH, i == selectorIndex);
+  }
 
-  const auto labels = mappedInput.mapLabels(tr(STR_BACK), tr(STR_SELECT), tr(STR_DIR_UP), tr(STR_DIR_DOWN));
+  // === BUTTON HINTS ===
+  const auto labels = mappedInput.mapLabels(tr(STR_BACK), tr(STR_SELECT), tr(STR_DIR_LEFT), tr(STR_DIR_RIGHT));
   GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
 
   renderer.displayBuffer();
 }
+
+void AppsMenuActivity::refreshSystemInfo() {
+  freeHeap = esp_get_free_heap_size();
+  uptimeSeconds = (unsigned long)(esp_timer_get_time() / 1000000LL);
+  batteryPercent = (uint8_t)powerManager.getBatteryPercentage();
+  wifiConnected = (WiFi.status() == WL_CONNECTED);
+  lastInfoRefresh = millis();
+}
+
+void AppsMenuActivity::drawStatusBar() const {
+  const auto pageWidth = renderer.getScreenWidth();
+  constexpr int pad = 14;
+
+  // Left: branding
+  renderer.drawText(UI_12_FONT_ID, pad, 10, "biscuit.", true, EpdFontFamily::BOLD);
+
+  // Right side: build right-to-left to avoid overlap
+
+  // Uptime (rightmost)
+  char uptimeStr[16];
+  unsigned long hrs = uptimeSeconds / 3600;
+  unsigned long mins = (uptimeSeconds % 3600) / 60;
+  if (hrs > 0) {
+    snprintf(uptimeStr, sizeof(uptimeStr), "%luh%02lum", hrs, mins);
+  } else {
+    snprintf(uptimeStr, sizeof(uptimeStr), "%lum", mins);
+  }
+  int uptimeW = renderer.getTextWidth(SMALL_FONT_ID, uptimeStr);
+  int rightX = pageWidth - pad;
+  renderer.drawText(SMALL_FONT_ID, rightX - uptimeW, 14, uptimeStr);
+  rightX -= uptimeW + 10;
+
+  // Heap
+  char heapStr[16];
+  snprintf(heapStr, sizeof(heapStr), "%luK", (unsigned long)(freeHeap / 1024));
+  int heapW = renderer.getTextWidth(SMALL_FONT_ID, heapStr);
+  renderer.drawText(SMALL_FONT_ID, rightX - heapW, 14, heapStr);
+  rightX -= heapW + 10;
+
+  // WiFi dot
+  if (wifiConnected) {
+    renderer.fillRect(rightX - 6, 16, 6, 6, true);
+  } else {
+    renderer.drawRect(rightX - 6, 16, 6, 6, true);
+  }
+  rightX -= 14;
+
+  // Battery — drawBatteryRight draws percentage text at rect.y, icon at rect.y+6
+  GUI.drawBatteryRight(renderer, Rect{rightX - 16, 14, 15, 12});
+
+  // Separator line
+  renderer.drawLine(pad, 38, pageWidth - pad, 38, true);
+}
+
+void AppsMenuActivity::drawTile(int index, int x, int y, int w, int h, bool selected) const {
+  if (selected) {
+    renderer.fillRect(x, y, w, h, true);
+  } else {
+    renderer.drawRect(x, y, w, h, true);
+  }
+
+  constexpr int pad = 10;
+
+  // --- Zone 1: Top — category name + subtitle ---
+  int nameY = y + pad;
+  const char* name = "";
+  const char* subtitle = "";
+  int appCount = 0;
+
+  switch (index) {
+    case 0: name = "Network";  subtitle = "WiFi & BLE tools";    appCount = 15; break;
+    case 1: name = "Wireless"; subtitle = "Testing & analysis";  appCount = 15; break;
+    case 2: name = "Tools";    subtitle = "Utilities";           appCount = 22; break;
+    case 3: name = "Games";    subtitle = "Entertainment";       appCount = 11; break;
+    case 4: name = "System";   subtitle = "Settings & device";    appCount = 14;  break;
+    case 5: name = "Reader";   subtitle = "Books & OPDS";        appCount = 4;  break;
+  }
+
+  renderer.drawText(UI_12_FONT_ID, x + pad, nameY, name, !selected, EpdFontFamily::BOLD);
+  nameY += renderer.getLineHeight(UI_12_FONT_ID) + 2;
+  renderer.drawText(SMALL_FONT_ID, x + pad, nameY, subtitle, !selected);
+
+  // --- Zone 2: Bottom-right — app count ---
+  char countStr[16];
+  snprintf(countStr, sizeof(countStr), "%d apps", appCount);
+  int countW = renderer.getTextWidth(SMALL_FONT_ID, countStr);
+  int countY = y + h - pad - renderer.getLineHeight(SMALL_FONT_ID);
+  renderer.drawText(SMALL_FONT_ID, x + w - pad - countW, countY, countStr, !selected);
+
+  // --- Zone 3: Bottom-left — live status (selected tile only) ---
+  if (selected) {
+    char statusStr[48] = "";
+    switch (index) {
+      case 0:
+        snprintf(statusStr, sizeof(statusStr), wifiConnected ? "WiFi: on" : "WiFi: off");
+        break;
+      case 4:
+        snprintf(statusStr, sizeof(statusStr), "Heap: %luK", (unsigned long)(freeHeap / 1024));
+        break;
+      default:
+        break;
+    }
+    if (statusStr[0] != '\0') {
+      int statusY = countY - renderer.getLineHeight(SMALL_FONT_ID) - 4;
+      renderer.drawText(SMALL_FONT_ID, x + pad, statusY, statusStr, !selected);
+    }
+  }
+}
+
