@@ -19,11 +19,11 @@ class CasinoActivity final : public Activity {
 
  private:
   // ---- top-level state ----
-  enum Screen { LOBBY, SLOTS, BLACKJACK, COINFLIP, HIGHLOW, ROULETTE };
+  enum Screen { LOBBY, SLOTS, BLACKJACK, COINFLIP, HIGHLOW, ROULETTE, LOOTBOX };
   Screen screen = LOBBY;
   int lobbyIndex = 0;
   int resetConfirmCount = 0;
-  static constexpr int LOBBY_COUNT = 6;  // Slots, BJ, Coin, H/L, Roulette, Reset
+  static constexpr int LOBBY_COUNT = 7;  // Slots, BJ, Coin, H/L, Roulette, Loot Box, Reset
   ButtonNavigator buttonNavigator;
 
   // ---- credits ----
@@ -184,4 +184,98 @@ class CasinoActivity final : public Activity {
   void renderCreditsBar();
   void renderBetSelector(int y);
   void drawCard(int x, int y, const Card& c, bool faceDown = false);
+
+  // ============ LOOT BOX ============
+  static constexpr const char* LB_COLLECTION_SAVE_PATH = "/biscuit/lootbox.dat";
+
+  // Collection: 50 items stored as bitfield (7 bytes = 56 bits, using first 50)
+  uint8_t lbCollected[7] = {};
+  int lbTotalCollected = 0;
+
+  // Item database
+  enum LbRarity : uint8_t { LB_COMMON, LB_RARE, LB_EPIC, LB_LEGENDARY };
+  struct LbItem {
+    const char* name;
+    LbRarity rarity;
+    uint8_t iconId;
+  };
+  static const LbItem LB_ITEMS[50];
+  static constexpr int LB_ITEM_COUNT = 50;
+  static constexpr int LB_COMMON_COUNT = 20;
+  static constexpr int LB_RARE_COUNT = 15;
+  static constexpr int LB_EPIC_COUNT = 10;
+  static constexpr int LB_LEGENDARY_COUNT = 5;
+
+  // Pull costs
+  static constexpr int LB_SINGLE_COST = 100;
+  static constexpr int LB_MULTI_COST = 450;
+  static constexpr int LB_MULTI_COUNT = 5;
+
+  // Pull results
+  int lbPullResults[5] = {};
+  int lbPullCount = 0;
+  bool lbPullIsNew[5] = {};
+  int lbRevealIndex = 0;
+
+  // Animation state
+  enum LbAnimState { LB_ANIM_IDLE, LB_ANIM_SHAKING, LB_ANIM_OPENING, LB_ANIM_REVEALED };
+  LbAnimState lbAnimState = LB_ANIM_IDLE;
+  int lbAnimFrame = 0;
+  unsigned long lbAnimStartMs = 0;
+  static constexpr int LB_SHAKE_FRAMES = 4;
+  static constexpr unsigned long LB_SHAKE_FRAME_MS = 150;
+  static constexpr int LB_OPEN_FRAMES = 3;
+  static constexpr unsigned long LB_OPEN_FRAME_MS = 250;
+
+  // Loot box sub-screen
+  enum LbScreen { LB_MAIN_MENU, LB_PULLING, LB_REVEAL_SINGLE, LB_REVEAL_MULTI, LB_COLLECTION, LB_ITEM_DETAIL };
+  LbScreen lbScreen = LB_MAIN_MENU;
+  int lbMenuIndex = 0;
+
+  // Collection browser
+  int lbCollectionPage = 0;
+  int lbCollectionCursor = 0;
+  static constexpr int LB_ITEMS_PER_PAGE = 15;
+  static constexpr int LB_GRID_COLS = 5;
+  static constexpr int LB_GRID_ROWS = 3;
+
+  // Detail view
+  int lbDetailItemId = -1;
+
+  // Collection helpers
+  void lbLoadCollection();
+  void lbSaveCollection();
+  bool lbHasItem(int id) const;
+  void lbSetItem(int id);
+  int lbCountCollected() const;
+
+  // Gacha logic
+  LbRarity lbRollRarity(bool guaranteeRare = false);
+  int lbRollItem(bool guaranteeRare = false);
+  void lbPerformSinglePull();
+  void lbPerformMultiPull();
+
+  // Loot box loop/render
+  void lbLoop();
+  void lbRender();
+
+  // Render helpers
+  void lbRenderMainMenu();
+  void lbRenderPulling();
+  void lbRenderRevealSingle();
+  void lbRenderRevealMulti();
+  void lbRenderCollection();
+  void lbRenderItemDetail();
+
+  // Drawing helpers
+  void lbDrawItemIcon(int x, int y, int size, int iconId, bool locked) const;
+  void lbDrawLootBox(int cx, int cy, int size, int shakeOffset) const;
+  void lbDrawRarityBorder(int x, int y, int w, int h, LbRarity rarity) const;
+  void lbDrawStars(int cx, int y, LbRarity rarity) const;
+  static const char* lbRarityName(LbRarity r);
+
+  // Dithering helpers (static, work on const renderer reference)
+  static void lbFillDithered25(const GfxRenderer& r, int x, int y, int w, int h);
+  static void lbFillDithered50(const GfxRenderer& r, int x, int y, int w, int h);
+  static void lbFillDithered75(const GfxRenderer& r, int x, int y, int w, int h);
 };

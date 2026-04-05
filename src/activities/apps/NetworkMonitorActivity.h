@@ -6,10 +6,10 @@
 #include "activities/Activity.h"
 #include "util/ButtonNavigator.h"
 
-class DeauthDetectorActivity final : public Activity {
+class NetworkMonitorActivity final : public Activity {
  public:
-  explicit DeauthDetectorActivity(GfxRenderer& renderer, MappedInputManager& mappedInput)
-      : Activity("DeauthDetector", renderer, mappedInput) {}
+  explicit NetworkMonitorActivity(GfxRenderer& renderer, MappedInputManager& mappedInput)
+      : Activity("NetworkMonitor", renderer, mappedInput) {}
   void onEnter() override;
   void onExit() override;
   void loop() override;
@@ -20,8 +20,13 @@ class DeauthDetectorActivity final : public Activity {
   void onFrame(const uint8_t* payload, uint16_t len, int rssi, uint8_t channel);
 
  private:
-  enum State { MONITORING, DETAIL, LOG_VIEW };
+  enum MonitorMode { FRAME_DETECTION, ROGUE_AP_SCAN };
+  MonitorMode monitorMode = FRAME_DETECTION;
+
+  enum State { MONITORING, DETAIL, LOG_VIEW, ROGUE_SCANNING, ROGUE_RESULTS, ROGUE_DETAIL };
   State state = MONITORING;
+
+  // ---- Frame detection members ----
 
   struct DetectionEvent {
     uint8_t targetBssid[6];
@@ -31,7 +36,7 @@ class DeauthDetectorActivity final : public Activity {
     uint32_t count;
     unsigned long firstSeen;
     unsigned long lastSeen;
-    uint8_t frameType;     // 0xC0=deauth, 0xA0=disassoc
+    uint8_t frameType;
     uint8_t reasonCode;
   };
 
@@ -61,9 +66,47 @@ class DeauthDetectorActivity final : public Activity {
   uint16_t rateHistory[GRAPH_POINTS] = {};
   int historyIndex = 0;
 
+  // ---- Rogue AP detection members ----
+
+  struct ApRecord {
+    std::string ssid;
+    std::string bssid;
+    int32_t rssi;
+    uint8_t channel;
+    uint8_t encType;
+  };
+
+  struct SsidGroup {
+    std::string ssid;
+    int apCount;
+    bool suspicious;
+    bool mixedEncryption;
+    bool mixedChannels;
+  };
+
+  std::vector<ApRecord> allAps;
+  std::vector<SsidGroup> ssidGroups;
+  int suspiciousCount = 0;
+  int roguesScanCount = 0;
+  int rogueScanPhase = 0;
+  static constexpr int ROGUE_SCAN_PHASES = 3;
+  int rogueDetailGroupIndex = -1;
+  int rogueSelectorIndex = 0;
+
+  // ---- Private methods ----
+
   void startMonitoring();
   void stopMonitoring();
   void saveToCsv();
   static std::string macToString(const uint8_t* mac);
   static const char* reasonCodeStr(uint8_t code);
+
+  void startRogueScan();
+  void processRogueScanResults();
+  void analyzeGroups();
+  void renderFrameDetection();
+  void renderRogueScanning();
+  void renderRogueResults();
+  void renderRogueDetail();
+  static const char* encryptionString(uint8_t type);
 };

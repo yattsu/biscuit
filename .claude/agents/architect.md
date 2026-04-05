@@ -47,11 +47,13 @@ WHEN PLANNING:
 
 MENU STRUCTURE (current):
 ```
-Apps Menu (AppsMenuActivity, 4 categories):
-├── Network Tools: WifiConnect, WifiScanner, HostScanner, Ping, DnsLookup
-├── Wireless Testing: BleScanner, PacketMonitor, PcapCapture, BeaconTest, WifiTest, CaptivePortal, BleBeacon, AirTagTest, BleKeyboard
-├── Games: Minesweeper, Sudoku, Chess, GameOfLife, Voronoi, Snake, Tetris, DiceRoller
-└── Utilities: PasswordManager, Pomodoro, NtpClock, Stopwatch, QrGenerator, MorseCode, UnitConverter, TextViewer, EtchASketch
+Apps Menu (AppsMenuActivity, 6 categories):
+├── Network: WifiConnect, WifiScanner, HostScanner, Ping, DnsLookup, HttpClient, MdnsBrowser, BleScanner, Wardriving
+├── Wireless Ops: PacketMonitor, ProbeSniffer, BleProximity, CredentialViewer, MacChanger, ApCloner, NetworkMonitor, BeaconTest, WifiTest, CaptivePortal, BleBeacon, AirTagTest, BleKeyboard
+├── Tools: Clock, Calculator, QrGenerator, MorseCode, UnitConverter, PasswordManager, SdFileBrowser, EtchASketch
+├── Games: Casino, Minesweeper, Sudoku, Chess, Snake, Tetris, Maze, DiceRoller, GameOfLife, Voronoi, MatrixRain
+├── System: TaskManager, BatteryMonitor, DeviceInfo, BackgroundManager
+└── Reader: Open Book, Recent Books, Browse Files, OPDS Browser
 ```
 
 SD CARD STRUCTURE:

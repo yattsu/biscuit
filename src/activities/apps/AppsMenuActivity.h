@@ -14,5 +14,5 @@ class AppsMenuActivity final : public Activity {
  private:
   ButtonNavigator buttonNavigator;
   int selectorIndex = 0;
-  static constexpr int ITEM_COUNT = 4;  // Network Tools, Wireless Testing, Games, Utilities
+  static constexpr int ITEM_COUNT = 6;  // Network, Wireless Ops, Tools, Games, System, Reader
 };

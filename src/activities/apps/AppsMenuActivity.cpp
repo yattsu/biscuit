@@ -12,7 +12,6 @@
 #include "BleScannerActivity.h"
 #include "CredentialViewerActivity.h"
 #include "CasinoActivity.h"
-#include "LootBoxActivity.h"
 #include "ChessActivity.h"
 #include "DiceRollerActivity.h"
 #include "DnsLookupActivity.h"
@@ -24,36 +23,35 @@
 #include "MappedInputManager.h"
 #include "MinesweeperActivity.h"
 #include "MorseCodeActivity.h"
-#include "NtpClockActivity.h"
+#include "ClockActivity.h"
 #include "PacketMonitorActivity.h"
 #include "PasswordManagerActivity.h"
-#include "PcapCaptureActivity.h"
 #include "PingActivity.h"
 #include "ProbeSnifferActivity.h"
-#include "PomodoroActivity.h"
 #include "QrGeneratorActivity.h"
 #include "SnakeActivity.h"
-#include "StopwatchActivity.h"
 #include "SudokuActivity.h"
 #include "TetrisActivity.h"
 #include "SdFileBrowserActivity.h"
-#include "TextViewerActivity.h"
 #include "UnitConverterActivity.h"
 #include "VoronoiActivity.h"
 #include "WifiConnectActivity.h"
 #include "WifiTestActivity.h"
 #include "WardrivingActivity.h"
-#include "SignalMeterActivity.h"
 #include "WifiScannerActivity.h"
-#include "DeauthDetectorActivity.h"
+#include "NetworkMonitorActivity.h"
 #include "MacChangerActivity.h"
 #include "MatrixRainActivity.h"
-#include "RogueApDetectorActivity.h"
 #include "MazeActivity.h"
 #include "CalculatorActivity.h"
-#include "BleExplorerActivity.h"
-#include "ChannelAnalyzerActivity.h"
 #include "MdnsBrowserActivity.h"
+#include "TaskManagerActivity.h"
+#include "BatteryMonitorActivity.h"
+#include "DeviceInfoActivity.h"
+#include "BackgroundManagerActivity.h"
+#include "activities/home/FileBrowserActivity.h"
+#include "activities/home/RecentBooksActivity.h"
+#include "activities/browser/OpdsBookBrowserActivity.h"
 #include "components/UITheme.h"
 #include "fontIds.h"
 
@@ -78,77 +76,94 @@ void AppsMenuActivity::loop() {
     std::unique_ptr<Activity> app;
     switch (selectorIndex) {
       case 0: {
+        // Network
         std::vector<AppCategoryActivity::AppEntry> e = {
             {tr(STR_WIFI_CONNECT), [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<WifiConnectActivity>(r, m); }},
             {tr(STR_WIFI_SCANNER), [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<WifiScannerActivity>(r, m); }},
-            {"Wardriving", [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<WardrivingActivity>(r, m); }},
             {tr(STR_HOST_SCANNER), [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<HostScannerActivity>(r, m); }},
             {tr(STR_PING_TOOL), [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<PingActivity>(r, m); }},
             {tr(STR_DNS_LOOKUP), [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<DnsLookupActivity>(r, m); }},
-            {"Signal Meter", [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<SignalMeterActivity>(r, m); }},
             {"HTTP Client", [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<HttpClientActivity>(r, m); }},
-            {"Channel Analyzer", [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<ChannelAnalyzerActivity>(r, m); }},
             {"mDNS Browser", [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<MdnsBrowserActivity>(r, m); }},
-            {"Rogue AP Detector", [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<RogueApDetectorActivity>(r, m); }},
+            {tr(STR_BLE_SCANNER), [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<BleScannerActivity>(r, m); }},
+            {"Wardriving", [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<WardrivingActivity>(r, m); }},
         };
         app = std::make_unique<AppCategoryActivity>(renderer, mappedInput, tr(STR_NETWORK_TOOLS), std::move(e));
         break;
       }
       case 1: {
+        // Wireless Ops
         std::vector<AppCategoryActivity::AppEntry> e = {
-            {tr(STR_BLE_SCANNER), [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<BleScannerActivity>(r, m); }},
             {tr(STR_PACKET_MONITOR), [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<PacketMonitorActivity>(r, m); }},
-            {tr(STR_PCAP_CAPTURE), [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<PcapCaptureActivity>(r, m); }},
+            {"Probe Sniffer", [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<ProbeSnifferActivity>(r, m); }},
+            {"BLE Proximity", [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<BleProximityActivity>(r, m); }},
+            {"Credential Viewer", [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<CredentialViewerActivity>(r, m); }},
+            {"MAC Changer", [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<MacChangerActivity>(r, m); }},
+            {"AP Cloner", [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<ApClonerActivity>(r, m); }},
+            {"Network Monitor", [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<NetworkMonitorActivity>(r, m); }},
             {tr(STR_BEACON_TEST), [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<BeaconTestActivity>(r, m); }},
             {tr(STR_WIFI_TEST), [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<WifiTestActivity>(r, m); }},
             {tr(STR_CAPTIVE_PORTAL), [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<CaptivePortalActivity>(r, m); }},
             {tr(STR_BLE_BEACON), [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<BleBeaconActivity>(r, m); }},
             {tr(STR_AIRTAG_TEST), [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<AirTagTestActivity>(r, m); }},
             {tr(STR_BLE_KEYBOARD), [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<BleKeyboardActivity>(r, m); }},
-            {"Probe Sniffer", [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<ProbeSnifferActivity>(r, m); }},
-            {"BLE Proximity", [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<BleProximityActivity>(r, m); }},
-            {"Credential Viewer", [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<CredentialViewerActivity>(r, m); }},
-            {"MAC Changer", [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<MacChangerActivity>(r, m); }},
-            {"AP Cloner", [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<ApClonerActivity>(r, m); }},
-            {"Deauth Detector", [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<DeauthDetectorActivity>(r, m); }},
-            {"BLE Explorer", [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<BleExplorerActivity>(r, m); }},
         };
         app = std::make_unique<AppCategoryActivity>(renderer, mappedInput, tr(STR_WIRELESS_TESTING), std::move(e), true);
         break;
       }
       case 2: {
+        // Tools
         std::vector<AppCategoryActivity::AppEntry> e = {
-	    {"Casino",    [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<CasinoActivity>(r, m); }},
-            {"Loot Box",  [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<LootBoxActivity>(r, m); }},
+            {"Clock", [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<ClockActivity>(r, m); }},
+            {"Calculator", [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<CalculatorActivity>(r, m); }},
+            {tr(STR_QR_GENERATOR), [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<QrGeneratorActivity>(r, m); }},
+            {tr(STR_MORSE_CODE), [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<MorseCodeActivity>(r, m); }},
+            {tr(STR_UNIT_CONVERTER), [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<UnitConverterActivity>(r, m); }},
+            {tr(STR_PASSWORD_MANAGER), [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<PasswordManagerActivity>(r, m); }},
+            {"SD File Browser", [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<SdFileBrowserActivity>(r, m); }},
+            {tr(STR_ETCH_A_SKETCH), [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<EtchASketchActivity>(r, m); }},
+        };
+        app = std::make_unique<AppCategoryActivity>(renderer, mappedInput, tr(STR_UTILITIES), std::move(e));
+        break;
+      }
+      case 3: {
+        // Games
+        std::vector<AppCategoryActivity::AppEntry> e = {
+            {"Casino", [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<CasinoActivity>(r, m); }},
             {tr(STR_MINESWEEPER), [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<MinesweeperActivity>(r, m); }},
             {tr(STR_SUDOKU), [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<SudokuActivity>(r, m); }},
             {tr(STR_CHESS), [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<ChessActivity>(r, m); }},
-            {tr(STR_GAME_OF_LIFE), [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<GameOfLifeActivity>(r, m); }},
-            {tr(STR_VORONOI), [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<VoronoiActivity>(r, m); }},
             {tr(STR_SNAKE), [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<SnakeActivity>(r, m); }},
             {tr(STR_TETRIS), [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<TetrisActivity>(r, m); }},
-            {tr(STR_DICE_ROLLER), [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<DiceRollerActivity>(r, m); }},
             {"Maze", [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<MazeActivity>(r, m); }},
+            {tr(STR_DICE_ROLLER), [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<DiceRollerActivity>(r, m); }},
+            {tr(STR_GAME_OF_LIFE), [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<GameOfLifeActivity>(r, m); }},
+            {tr(STR_VORONOI), [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<VoronoiActivity>(r, m); }},
+            {"Matrix Rain", [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<MatrixRainActivity>(r, m); }},
         };
         app = std::make_unique<AppCategoryActivity>(renderer, mappedInput, tr(STR_GAMES), std::move(e));
         break;
       }
-      case 3: {
+      case 4: {
+        // System
         std::vector<AppCategoryActivity::AppEntry> e = {
-            {tr(STR_PASSWORD_MANAGER), [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<PasswordManagerActivity>(r, m); }},
-            {tr(STR_POMODORO), [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<PomodoroActivity>(r, m); }},
-            {tr(STR_NTP_CLOCK), [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<NtpClockActivity>(r, m); }},
-            {tr(STR_STOPWATCH), [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<StopwatchActivity>(r, m); }},
-            {tr(STR_QR_GENERATOR), [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<QrGeneratorActivity>(r, m); }},
-            {tr(STR_MORSE_CODE), [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<MorseCodeActivity>(r, m); }},
-            {tr(STR_UNIT_CONVERTER), [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<UnitConverterActivity>(r, m); }},
-            {tr(STR_TEXT_VIEWER), [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<TextViewerActivity>(r, m); }},
-            {tr(STR_ETCH_A_SKETCH), [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<EtchASketchActivity>(r, m); }},
-            {"SD File Browser", [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<SdFileBrowserActivity>(r, m); }},
-            {"Calculator", [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<CalculatorActivity>(r, m); }},
-            {"Matrix Rain", [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<MatrixRainActivity>(r, m); }},
+            {"Task Manager", [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<TaskManagerActivity>(r, m); }},
+            {"Battery Monitor", [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<BatteryMonitorActivity>(r, m); }},
+            {"Device Info", [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<DeviceInfoActivity>(r, m); }},
+            {"Background", [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<BackgroundManagerActivity>(r, m); }},
         };
-        app = std::make_unique<AppCategoryActivity>(renderer, mappedInput, tr(STR_UTILITIES), std::move(e));
+        app = std::make_unique<AppCategoryActivity>(renderer, mappedInput, "System", std::move(e));
+        break;
+      }
+      case 5: {
+        // Reader
+        std::vector<AppCategoryActivity::AppEntry> e = {
+            {"Open Book", [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<FileBrowserActivity>(r, m); }},
+            {"Recent Books", [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<RecentBooksActivity>(r, m); }},
+            {"Browse Files", [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<FileBrowserActivity>(r, m); }},
+            {"OPDS Browser", [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<OpdsBookBrowserActivity>(r, m); }},
+        };
+        app = std::make_unique<AppCategoryActivity>(renderer, mappedInput, "Reader", std::move(e));
         break;
       }
     }
@@ -178,8 +193,10 @@ void AppsMenuActivity::render(RenderLock&&) {
         switch (index) {
           case 0: return tr(STR_NETWORK_TOOLS);
           case 1: return tr(STR_WIRELESS_TESTING);
-          case 2: return tr(STR_GAMES);
-          case 3: return tr(STR_UTILITIES);
+          case 2: return tr(STR_UTILITIES);
+          case 3: return tr(STR_GAMES);
+          case 4: return "System";
+          case 5: return "Reader";
           default: return "";
         }
       },

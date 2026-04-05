@@ -2,7 +2,11 @@
 #include <cstdint>
 #include <string>
 
+#include <freertos/FreeRTOS.h>
 #include <freertos/portmacro.h>
+#include <freertos/semphr.h>
+
+#include <HalStorage.h>
 
 #include "activities/Activity.h"
 
@@ -42,8 +46,25 @@ class PacketMonitorActivity final : public Activity {
   static constexpr unsigned long UPDATE_INTERVAL_MS = 2500;
   static constexpr unsigned long HOP_INTERVAL_MS = 500;
 
+  // PCAP recording
+  enum CaptureMode { CAPTURE_ALL, CAPTURE_EAPOL_ONLY };
+  CaptureMode captureMode = CAPTURE_ALL;
+  bool pcapRecording = false;
+  SemaphoreHandle_t fileMux = nullptr;
+  FsFile pcapFile;
+  bool pcapFileOpen = false;
+  volatile uint32_t packetsSaved = 0;
+  volatile uint32_t pcapFileSize = 0;
+  bool eapolFound = false;
+
   void startMonitor();
   void stopMonitor();
   void setChannel(uint8_t ch);
   void saveToCsv();
+
+  void startPcapRecording();
+  void stopPcapRecording();
+  void writePcapHeader();
+  void writePcapPacket(const uint8_t* data, uint16_t len);
+  bool isEapolPacket(const uint8_t* data, uint16_t len) const;
 };

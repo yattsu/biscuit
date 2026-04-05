@@ -48,12 +48,18 @@ void CasinoActivity::onEnter() {
   showingResult = false;
   loadCredits();
   bjShuffle();
+  // Loot box init
+  lbScreen = LB_MAIN_MENU;
+  lbMenuIndex = 0;
+  lbAnimState = LB_ANIM_IDLE;
+  lbLoadCollection();
   requestUpdate();
 }
 
 void CasinoActivity::onExit() {
   Activity::onExit();
   saveCredits();
+  lbSaveCollection();
 }
 
 // ================================================================
@@ -121,6 +127,12 @@ void CasinoActivity::loop() {
           case 3: screen = HIGHLOW; hlState = HL_BET; hlStreak = 0; break;
           case 4: screen = ROULETTE; rlState = RL_BET; break;
           case 5:
+            screen = LOOTBOX;
+            lbScreen = LB_MAIN_MENU;
+            lbMenuIndex = 0;
+            lbAnimState = LB_ANIM_IDLE;
+            break;
+          case 6:
             resetConfirmCount++;
             if (resetConfirmCount >= 3) {
               resetCredits();
@@ -140,6 +152,7 @@ void CasinoActivity::loop() {
     case COINFLIP: coinLoop(); break;
     case HIGHLOW: hlLoop(); break;
     case ROULETTE: rlLoop(); break;
+    case LOOTBOX: lbLoop(); break;
   }
 }
 
@@ -157,6 +170,7 @@ void CasinoActivity::render(RenderLock&&) {
     case COINFLIP: coinRender(); break;
     case HIGHLOW: hlRender(); break;
     case ROULETTE: rlRender(); break;
+    case LOOTBOX: lbRender(); return;  // lbRender calls displayBuffer itself
   }
 
   // Result overlay
@@ -220,8 +234,8 @@ void CasinoActivity::renderLobby() {
   int contentTop = 90;
   int contentHeight = pageHeight - contentTop - metrics.buttonHintsHeight - metrics.verticalSpacing;
 
-  static const char* games[] = {"Slot Machine", "Blackjack", "Coin Flip", "Higher / Lower", "Roulette", "Reset Credits"};
-  static const char* descs[] = {"5 machines with powerups", "Beat the dealer to 21", "Pick heads or tails, 2x payout", "Guess the next card, streak bonus", "European roulette, 0-36", "Start fresh with 1000 credits"};
+  static const char* games[] = {"Slot Machine", "Blackjack", "Coin Flip", "Higher / Lower", "Roulette", "Loot Box", "Reset Credits"};
+  static const char* descs[] = {"5 machines with powerups", "Beat the dealer to 21", "Pick heads or tails, 2x payout", "Guess the next card, streak bonus", "European roulette, 0-36", "Gacha pulls & collection", "Start fresh with 1000 credits"};
 
   static const char* resetDescs[] = {"Start fresh with 1000 credits", "Are you sure? Press again.", "Really sure? Press once more."};
   const char* resetDesc = resetDescs[resetConfirmCount < 3 ? resetConfirmCount : 2];
@@ -229,7 +243,7 @@ void CasinoActivity::renderLobby() {
   GUI.drawList(
       renderer, Rect{0, contentTop, pageWidth, contentHeight}, LOBBY_COUNT, lobbyIndex,
       [](int i) { return std::string(games[i]); },
-      [resetDesc](int i) { return std::string(i == 5 ? resetDesc : descs[i]); });
+      [resetDesc](int i) { return std::string(i == 6 ? resetDesc : descs[i]); });
 
   const auto labels = mappedInput.mapLabels("Exit", "Play", "Up", "Down");
   GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
@@ -1966,5 +1980,1365 @@ void CasinoActivity::rlRender() {
   } else {
     const auto labels = mappedInput.mapLabels("Back", "Spin!", "Type", "Type");
     GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
+  }
+}
+
+// ================================================================
+// LOOT BOX — ITEM DATABASE (stored in flash via static const)
+// ================================================================
+
+const CasinoActivity::LbItem CasinoActivity::LB_ITEMS[50] = {
+  // COMMON (0-19)
+  {"Resistor",       LB_COMMON,    0},
+  {"Capacitor",      LB_COMMON,    1},
+  {"LED",            LB_COMMON,    2},
+  {"Battery",        LB_COMMON,    3},
+  {"Antenna",        LB_COMMON,    4},
+  {"USB Plug",       LB_COMMON,    5},
+  {"SD Card",        LB_COMMON,    6},
+  {"Floppy Disk",    LB_COMMON,    7},
+  {"Mouse",          LB_COMMON,    8},
+  {"Keyboard Key",   LB_COMMON,    9},
+  {"Pixel Heart",    LB_COMMON,   10},
+  {"Coffee Cup",     LB_COMMON,   11},
+  {"Light Bulb",     LB_COMMON,   12},
+  {"Wrench",         LB_COMMON,   13},
+  {"Magnifier",      LB_COMMON,   14},
+  {"Clock",          LB_COMMON,   15},
+  {"Envelope",       LB_COMMON,   16},
+  {"Star",           LB_COMMON,   17},
+  {"Moon",           LB_COMMON,   18},
+  {"Cloud",          LB_COMMON,   19},
+  // RARE (20-34)
+  {"Microchip",      LB_RARE,     20},
+  {"Circuit Board",  LB_RARE,     21},
+  {"Router",         LB_RARE,     22},
+  {"Satellite",      LB_RARE,     23},
+  {"Robot Head",     LB_RARE,     24},
+  {"Game Boy",       LB_RARE,     25},
+  {"Oscilloscope",   LB_RARE,     26},
+  {"Soldering Iron", LB_RARE,     27},
+  {"Drone",          LB_RARE,     28},
+  {"VR Headset",     LB_RARE,     29},
+  {"Server Rack",    LB_RARE,     30},
+  {"Ethernet Jack",  LB_RARE,     31},
+  {"Raspberry Pi",   LB_RARE,     32},
+  {"Arduino",        LB_RARE,     33},
+  {"Logic Analyzer", LB_RARE,     34},
+  // EPIC (35-44)
+  {"Golden Chip",    LB_EPIC,     35},
+  {"Cyber Eye",      LB_EPIC,     36},
+  {"Plasma Ball",    LB_EPIC,     37},
+  {"Hologram",       LB_EPIC,     38},
+  {"Quantum Bit",    LB_EPIC,     39},
+  {"Neural Net",     LB_EPIC,     40},
+  {"Infinity Loop",  LB_EPIC,     41},
+  {"Crypto Key",     LB_EPIC,     42},
+  {"Zero Day",       LB_EPIC,     43},
+  {"Black Box",      LB_EPIC,     44},
+  // LEGENDARY (45-49)
+  {"The Kernel",     LB_LEGENDARY, 45},
+  {"Root Shell",     LB_LEGENDARY, 46},
+  {"Packet Ghost",   LB_LEGENDARY, 47},
+  {"E-Ink Dragon",   LB_LEGENDARY, 48},
+  {"biscuit. Logo",  LB_LEGENDARY, 49},
+};
+
+// ================================================================
+// LOOT BOX — DITHERING HELPERS
+// ================================================================
+
+void CasinoActivity::lbFillDithered25(const GfxRenderer& r, int x, int y, int w, int h) {
+  for (int dy = 0; dy < h; dy += 2)
+    for (int dx = ((dy / 2) % 2); dx < w; dx += 2)
+      r.drawPixel(x + dx, y + dy, true);
+}
+
+void CasinoActivity::lbFillDithered50(const GfxRenderer& r, int x, int y, int w, int h) {
+  for (int dy = 0; dy < h; dy++)
+    for (int dx = (dy % 2); dx < w; dx += 2)
+      r.drawPixel(x + dx, y + dy, true);
+}
+
+void CasinoActivity::lbFillDithered75(const GfxRenderer& r, int x, int y, int w, int h) {
+  for (int dy = 0; dy < h; dy++)
+    for (int dx = ((dy + 1) % 2); dx < w; dx += 2)
+      r.drawPixel(x + dx, y + dy, true);
+  for (int dy = 1; dy < h; dy += 2)
+    for (int dx = ((dy / 2) % 2); dx < w; dx += 2)
+      r.drawPixel(x + dx, y + dy, true);
+}
+
+// ================================================================
+// LOOT BOX — COLLECTION PERSISTENCE
+// ================================================================
+
+void CasinoActivity::lbLoadCollection() {
+  auto file = Storage.open(LB_COLLECTION_SAVE_PATH);
+  if (file && !file.isDirectory()) {
+    file.read(lbCollected, 7);
+    file.close();
+  }
+  lbTotalCollected = lbCountCollected();
+}
+
+void CasinoActivity::lbSaveCollection() {
+  auto file = Storage.open(LB_COLLECTION_SAVE_PATH, O_WRITE | O_CREAT | O_TRUNC);
+  if (file) {
+    file.write(lbCollected, 7);
+    file.close();
+  }
+}
+
+bool CasinoActivity::lbHasItem(int id) const {
+  if (id < 0 || id >= LB_ITEM_COUNT) return false;
+  return (lbCollected[id / 8] >> (id % 8)) & 1;
+}
+
+void CasinoActivity::lbSetItem(int id) {
+  if (id < 0 || id >= LB_ITEM_COUNT) return;
+  lbCollected[id / 8] |= (1 << (id % 8));
+}
+
+int CasinoActivity::lbCountCollected() const {
+  int count = 0;
+  for (int i = 0; i < LB_ITEM_COUNT; i++)
+    if (lbHasItem(i)) count++;
+  return count;
+}
+
+// ================================================================
+// LOOT BOX — GACHA LOGIC
+// ================================================================
+
+const char* CasinoActivity::lbRarityName(LbRarity r) {
+  switch (r) {
+    case LB_COMMON:    return "Common";
+    case LB_RARE:      return "Rare";
+    case LB_EPIC:      return "Epic";
+    case LB_LEGENDARY: return "Legendary";
+  }
+  return "?";
+}
+
+CasinoActivity::LbRarity CasinoActivity::lbRollRarity(bool guaranteeRare) {
+  int roll = (int)(esp_random() % 100);
+  if (roll < 3) return LB_LEGENDARY;
+  if (roll < 15) return LB_EPIC;
+  if (roll < 40) return LB_RARE;
+  if (guaranteeRare) return LB_RARE;
+  return LB_COMMON;
+}
+
+int CasinoActivity::lbRollItem(bool guaranteeRare) {
+  LbRarity r = lbRollRarity(guaranteeRare);
+  int start, count;
+  switch (r) {
+    case LB_COMMON:    start = 0;  count = LB_COMMON_COUNT;    break;
+    case LB_RARE:      start = 20; count = LB_RARE_COUNT;      break;
+    case LB_EPIC:      start = 35; count = LB_EPIC_COUNT;      break;
+    case LB_LEGENDARY: start = 45; count = LB_LEGENDARY_COUNT; break;
+    default:           start = 0;  count = LB_COMMON_COUNT;    break;
+  }
+  return start + (int)(esp_random() % count);
+}
+
+void CasinoActivity::lbPerformSinglePull() {
+  if (credits < LB_SINGLE_COST) return;
+  credits -= LB_SINGLE_COST;
+  lbPullCount = 1;
+  lbPullResults[0] = lbRollItem(false);
+  lbPullIsNew[0] = !lbHasItem(lbPullResults[0]);
+  if (lbPullIsNew[0]) {
+    lbSetItem(lbPullResults[0]);
+    lbTotalCollected = lbCountCollected();
+  } else {
+    credits += 25;
+  }
+  saveCredits();
+  lbSaveCollection();
+  lbAnimState = LB_ANIM_SHAKING;
+  lbAnimFrame = 0;
+  lbAnimStartMs = millis();
+  lbScreen = LB_PULLING;
+  requestUpdate();
+}
+
+void CasinoActivity::lbPerformMultiPull() {
+  if (credits < LB_MULTI_COST) return;
+  credits -= LB_MULTI_COST;
+  lbPullCount = LB_MULTI_COUNT;
+  bool hasRareOrBetter = false;
+  for (int i = 0; i < LB_MULTI_COUNT; i++) {
+    bool guarantee = (i == LB_MULTI_COUNT - 1 && !hasRareOrBetter);
+    lbPullResults[i] = lbRollItem(guarantee);
+    lbPullIsNew[i] = !lbHasItem(lbPullResults[i]);
+    if (lbPullIsNew[i]) {
+      lbSetItem(lbPullResults[i]);
+    } else {
+      credits += 25;
+    }
+    if (LB_ITEMS[lbPullResults[i]].rarity >= LB_RARE) hasRareOrBetter = true;
+  }
+  lbTotalCollected = lbCountCollected();
+  saveCredits();
+  lbSaveCollection();
+  lbAnimState = LB_ANIM_SHAKING;
+  lbAnimFrame = 0;
+  lbAnimStartMs = millis();
+  lbRevealIndex = 0;
+  lbScreen = LB_PULLING;
+  requestUpdate();
+}
+
+// ================================================================
+// LOOT BOX — MAIN LOOP
+// ================================================================
+
+void CasinoActivity::lbLoop() {
+  switch (lbScreen) {
+    case LB_MAIN_MENU: {
+      if (mappedInput.wasPressed(MappedInputManager::Button::Back)) {
+        screen = LOBBY;
+        requestUpdate();
+        return;
+      }
+      if (mappedInput.wasPressed(MappedInputManager::Button::Up)) {
+        lbMenuIndex = ButtonNavigator::previousIndex(lbMenuIndex, 3);
+        requestUpdate();
+      }
+      if (mappedInput.wasPressed(MappedInputManager::Button::Down)) {
+        lbMenuIndex = ButtonNavigator::nextIndex(lbMenuIndex, 3);
+        requestUpdate();
+      }
+      if (mappedInput.wasReleased(MappedInputManager::Button::Confirm)) {
+        switch (lbMenuIndex) {
+          case 0: lbPerformSinglePull(); break;
+          case 1: lbPerformMultiPull(); break;
+          case 2:
+            lbScreen = LB_COLLECTION;
+            lbCollectionPage = 0;
+            lbCollectionCursor = 0;
+            requestUpdate();
+            break;
+        }
+      }
+      break;
+    }
+    case LB_PULLING: {
+      unsigned long elapsed = millis() - lbAnimStartMs;
+      if (lbAnimState == LB_ANIM_SHAKING) {
+        int frame = (int)(elapsed / LB_SHAKE_FRAME_MS);
+        if (frame >= LB_SHAKE_FRAMES) {
+          lbAnimState = LB_ANIM_OPENING;
+          lbAnimFrame = 0;
+          lbAnimStartMs = millis();
+          requestUpdate();
+        } else if (frame != lbAnimFrame) {
+          lbAnimFrame = frame;
+          requestUpdate();
+        }
+      } else if (lbAnimState == LB_ANIM_OPENING) {
+        int frame = (int)(elapsed / LB_OPEN_FRAME_MS);
+        if (frame >= LB_OPEN_FRAMES) {
+          lbAnimState = LB_ANIM_REVEALED;
+          if (lbPullCount == 1) {
+            lbScreen = LB_REVEAL_SINGLE;
+          } else {
+            lbScreen = LB_REVEAL_MULTI;
+            lbRevealIndex = 0;
+          }
+          requestUpdate();
+        } else if (frame != lbAnimFrame) {
+          lbAnimFrame = frame;
+          requestUpdate();
+        }
+      }
+      break;
+    }
+    case LB_REVEAL_SINGLE: {
+      if (mappedInput.wasPressed(MappedInputManager::Button::Back) ||
+          mappedInput.wasPressed(MappedInputManager::Button::Confirm)) {
+        lbScreen = LB_MAIN_MENU;
+        requestUpdate();
+      }
+      break;
+    }
+    case LB_REVEAL_MULTI: {
+      if (mappedInput.wasPressed(MappedInputManager::Button::Back)) {
+        lbScreen = LB_MAIN_MENU;
+        requestUpdate();
+        break;
+      }
+      if (mappedInput.wasPressed(MappedInputManager::Button::Confirm)) {
+        lbRevealIndex++;
+        if (lbRevealIndex >= lbPullCount) {
+          lbScreen = LB_MAIN_MENU;
+        }
+        requestUpdate();
+      }
+      break;
+    }
+    case LB_COLLECTION: {
+      if (mappedInput.wasPressed(MappedInputManager::Button::Back)) {
+        lbScreen = LB_MAIN_MENU;
+        requestUpdate();
+        break;
+      }
+      int totalPages = (LB_ITEM_COUNT + LB_ITEMS_PER_PAGE - 1) / LB_ITEMS_PER_PAGE;
+      if (mappedInput.wasPressed(MappedInputManager::Button::Right)) {
+        lbCollectionCursor++;
+        if (lbCollectionCursor >= LB_ITEMS_PER_PAGE) {
+          lbCollectionCursor = 0;
+          lbCollectionPage = (lbCollectionPage + 1) % totalPages;
+        }
+        int itemId = lbCollectionPage * LB_ITEMS_PER_PAGE + lbCollectionCursor;
+        if (itemId >= LB_ITEM_COUNT) { lbCollectionPage = 0; lbCollectionCursor = 0; }
+        requestUpdate();
+      }
+      if (mappedInput.wasPressed(MappedInputManager::Button::Left)) {
+        lbCollectionCursor--;
+        if (lbCollectionCursor < 0) {
+          lbCollectionCursor = LB_ITEMS_PER_PAGE - 1;
+          lbCollectionPage = (lbCollectionPage - 1 + totalPages) % totalPages;
+        }
+        int itemId = lbCollectionPage * LB_ITEMS_PER_PAGE + lbCollectionCursor;
+        if (itemId >= LB_ITEM_COUNT) {
+          lbCollectionCursor = (LB_ITEM_COUNT - 1) % LB_ITEMS_PER_PAGE;
+          lbCollectionPage = (LB_ITEM_COUNT - 1) / LB_ITEMS_PER_PAGE;
+        }
+        requestUpdate();
+      }
+      if (mappedInput.wasPressed(MappedInputManager::Button::Up)) {
+        lbCollectionCursor -= LB_GRID_COLS;
+        if (lbCollectionCursor < 0) {
+          lbCollectionPage = (lbCollectionPage - 1 + totalPages) % totalPages;
+          lbCollectionCursor += LB_ITEMS_PER_PAGE;
+          int itemId = lbCollectionPage * LB_ITEMS_PER_PAGE + lbCollectionCursor;
+          if (itemId >= LB_ITEM_COUNT) {
+            lbCollectionCursor = (LB_ITEM_COUNT - 1) % LB_ITEMS_PER_PAGE;
+            lbCollectionPage = (LB_ITEM_COUNT - 1) / LB_ITEMS_PER_PAGE;
+          }
+        }
+        requestUpdate();
+      }
+      if (mappedInput.wasPressed(MappedInputManager::Button::Down)) {
+        lbCollectionCursor += LB_GRID_COLS;
+        if (lbCollectionCursor >= LB_ITEMS_PER_PAGE) {
+          lbCollectionCursor -= LB_ITEMS_PER_PAGE;
+          lbCollectionPage = (lbCollectionPage + 1) % totalPages;
+        }
+        int itemId = lbCollectionPage * LB_ITEMS_PER_PAGE + lbCollectionCursor;
+        if (itemId >= LB_ITEM_COUNT) { lbCollectionPage = 0; lbCollectionCursor = 0; }
+        requestUpdate();
+      }
+      if (mappedInput.wasPressed(MappedInputManager::Button::PageForward)) {
+        lbCollectionPage = (lbCollectionPage + 1) % totalPages;
+        lbCollectionCursor = 0;
+        requestUpdate();
+      }
+      if (mappedInput.wasPressed(MappedInputManager::Button::PageBack)) {
+        lbCollectionPage = (lbCollectionPage - 1 + totalPages) % totalPages;
+        lbCollectionCursor = 0;
+        requestUpdate();
+      }
+      if (mappedInput.wasReleased(MappedInputManager::Button::Confirm)) {
+        int itemId = lbCollectionPage * LB_ITEMS_PER_PAGE + lbCollectionCursor;
+        if (itemId < LB_ITEM_COUNT && lbHasItem(itemId)) {
+          lbDetailItemId = itemId;
+          lbScreen = LB_ITEM_DETAIL;
+          requestUpdate();
+        }
+      }
+      break;
+    }
+    case LB_ITEM_DETAIL: {
+      if (mappedInput.wasPressed(MappedInputManager::Button::Back) ||
+          mappedInput.wasPressed(MappedInputManager::Button::Confirm)) {
+        lbScreen = LB_COLLECTION;
+        requestUpdate();
+      }
+      break;
+    }
+  }
+}
+
+// ================================================================
+// LOOT BOX — RENDER DISPATCHER
+// ================================================================
+
+void CasinoActivity::lbRender() {
+  renderer.clearScreen();
+
+  switch (lbScreen) {
+    case LB_MAIN_MENU:     lbRenderMainMenu();     break;
+    case LB_PULLING:       lbRenderPulling();      break;
+    case LB_REVEAL_SINGLE: lbRenderRevealSingle(); break;
+    case LB_REVEAL_MULTI:  lbRenderRevealMulti();  break;
+    case LB_COLLECTION:    lbRenderCollection();   break;
+    case LB_ITEM_DETAIL:   lbRenderItemDetail();   break;
+  }
+
+  if (lbScreen == LB_REVEAL_SINGLE || lbScreen == LB_REVEAL_MULTI ||
+      lbScreen == LB_ITEM_DETAIL   || lbScreen == LB_COLLECTION) {
+    renderer.displayBuffer(HalDisplay::HALF_REFRESH);
+  } else {
+    renderer.displayBuffer();
+  }
+}
+
+// ================================================================
+// LOOT BOX — RENDER: MAIN MENU
+// ================================================================
+
+void CasinoActivity::lbRenderMainMenu() {
+  const auto pageWidth = renderer.getScreenWidth();
+
+  renderer.drawCenteredText(UI_12_FONT_ID, 12, "Loot Box", true, EpdFontFamily::BOLD);
+  renderer.drawLine(15, 42, pageWidth - 15, 42);
+
+  char buf[32];
+  snprintf(buf, sizeof(buf), "Credits: %d", (int)credits);
+  renderer.drawText(UI_10_FONT_ID, 15, 50, buf, true, EpdFontFamily::BOLD);
+  renderer.drawLine(0, 72, pageWidth, 72);
+
+  lbDrawLootBox(pageWidth / 2, 250, 140, 0);
+
+  int menuY = 400;
+  const int menuSpacing = 45;
+
+  char singleBuf[40], multiBuf[40], collBuf[40];
+  snprintf(singleBuf, sizeof(singleBuf), "Single Pull (%d)", LB_SINGLE_COST);
+  snprintf(multiBuf,  sizeof(multiBuf),  "5x Pull (%d)",    LB_MULTI_COST);
+  snprintf(collBuf,   sizeof(collBuf),   "Collection (%d/%d)", lbTotalCollected, LB_ITEM_COUNT);
+
+  const char* items[] = {singleBuf, multiBuf, collBuf};
+  for (int i = 0; i < 3; i++) {
+    int y = menuY + i * menuSpacing;
+    if (i == lbMenuIndex) {
+      renderer.fillRect(30, y - 2, pageWidth - 60, 30, true);
+      renderer.drawCenteredText(UI_10_FONT_ID, y, items[i], false, EpdFontFamily::BOLD);
+    } else {
+      renderer.drawCenteredText(UI_10_FONT_ID, y, items[i]);
+    }
+  }
+
+  if (lbMenuIndex == 0 && credits < LB_SINGLE_COST) {
+    renderer.drawCenteredText(SMALL_FONT_ID, menuY + 3 * menuSpacing + 10, "Not enough credits!");
+  } else if (lbMenuIndex == 1 && credits < LB_MULTI_COST) {
+    renderer.drawCenteredText(SMALL_FONT_ID, menuY + 3 * menuSpacing + 10, "Not enough credits!");
+  }
+
+  const auto labels = mappedInput.mapLabels("Back", "Select", "Up", "Down");
+  GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
+}
+
+// ================================================================
+// LOOT BOX — RENDER: PULLING ANIMATION
+// ================================================================
+
+void CasinoActivity::lbRenderPulling() {
+  const auto pageWidth  = renderer.getScreenWidth();
+  const auto pageHeight = renderer.getScreenHeight();
+  int cx = pageWidth / 2;
+  int cy = pageHeight / 2 - 50;
+
+  if (lbAnimState == LB_ANIM_SHAKING) {
+    static constexpr int shakeOffsets[] = {6, -6, 8, -8};
+    int offset = shakeOffsets[lbAnimFrame % 4];
+    lbDrawLootBox(cx, cy, 160, offset);
+    renderer.drawCenteredText(UI_10_FONT_ID, cy + 120, "Opening...");
+  } else if (lbAnimState == LB_ANIM_OPENING) {
+    int lidOffset = (lbAnimFrame + 1) * 15;
+    int x = cx - 80;
+    int y = cy - 80;
+
+    // Shadow
+    lbFillDithered50(renderer, x + 4, y + 4 + 54, 160, 106);
+    // Box body
+    renderer.fillRect(x, y + 54, 160, 106, false);
+    renderer.drawRect(x, y + 54, 160, 106);
+    renderer.drawRect(x + 2, y + 56, 156, 102);
+    // "?" on front
+    renderer.drawCenteredText(UI_12_FONT_ID, cy + 20, "?", true, EpdFontFamily::BOLD);
+
+    // Lid floating up
+    int lidY = y - lidOffset;
+    int lidX = x - 4 + (lbAnimFrame * 5);
+    renderer.fillRect(lidX, lidY, 168, 54, false);
+    renderer.drawRect(lidX, lidY, 168, 54);
+
+    if (lbAnimFrame >= 2) {
+      for (int i = 0; i < 8; i++) {
+        float angle = i * 0.7854f;
+        int ex = cx + (int)(60 * cosf(angle));
+        int ey = cy + (int)(60 * sinf(angle));
+        renderer.drawLine(cx, cy, ex, ey);
+      }
+    }
+    renderer.drawCenteredText(UI_10_FONT_ID, cy + 120, "Opening...");
+  }
+}
+
+// ================================================================
+// LOOT BOX — RENDER: REVEAL SINGLE
+// ================================================================
+
+void CasinoActivity::lbRenderRevealSingle() {
+  const auto pageWidth  = renderer.getScreenWidth();
+  int itemId = lbPullResults[0];
+  const LbItem& item = LB_ITEMS[itemId];
+  bool isNew = lbPullIsNew[0];
+
+  if (isNew) {
+    renderer.drawCenteredText(UI_12_FONT_ID, 20, "NEW ITEM!", true, EpdFontFamily::BOLD);
+  } else {
+    renderer.drawCenteredText(UI_12_FONT_ID, 20, "DUPLICATE", true, EpdFontFamily::BOLD);
+  }
+  renderer.drawLine(15, 50, pageWidth - 15, 50);
+
+  int frameX = pageWidth / 2 - 80;
+  int frameY = 80;
+  int frameW = 160;
+  int frameH = 160;
+  lbDrawRarityBorder(frameX, frameY, frameW, frameH, item.rarity);
+
+  int iconCx = pageWidth / 2;
+  int iconCy = frameY + frameH / 2;
+  if (isNew) {
+    for (int i = 0; i < 8; i++) {
+      float angle = i * 0.7854f;
+      int ex = iconCx + (int)(90 * cosf(angle));
+      int ey = iconCy + (int)(90 * sinf(angle));
+      renderer.drawLine(iconCx, iconCy, ex, ey);
+    }
+  }
+
+  lbDrawItemIcon(frameX + 20, frameY + 20, frameW - 40, item.iconId, false);
+
+  int starY = frameY + frameH + 20;
+  lbDrawStars(pageWidth / 2, starY, item.rarity);
+
+  char rarBuf[32];
+  snprintf(rarBuf, sizeof(rarBuf), "~ %s ~", lbRarityName(item.rarity));
+  renderer.drawCenteredText(UI_10_FONT_ID, starY + 30, rarBuf, true, EpdFontFamily::BOLD);
+
+  renderer.drawCenteredText(UI_12_FONT_ID, starY + 65, item.name, true, EpdFontFamily::BOLD);
+
+  if (!isNew) {
+    renderer.drawCenteredText(SMALL_FONT_ID, starY + 100, "+25 credits refunded");
+  }
+
+  char progBuf[32];
+  snprintf(progBuf, sizeof(progBuf), "%d/%d Collected", lbTotalCollected, LB_ITEM_COUNT);
+  renderer.drawCenteredText(SMALL_FONT_ID, starY + 130, progBuf);
+
+  const auto labels = mappedInput.mapLabels("Back", "OK", "", "");
+  GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
+}
+
+// ================================================================
+// LOOT BOX — RENDER: REVEAL MULTI
+// ================================================================
+
+void CasinoActivity::lbRenderRevealMulti() {
+  const auto pageWidth = renderer.getScreenWidth();
+
+  renderer.drawCenteredText(UI_12_FONT_ID, 15, "5x PULL RESULTS", true, EpdFontFamily::BOLD);
+  renderer.drawLine(15, 45, pageWidth - 15, 45);
+
+  int slotSize = 70;
+  int spacing  = 10;
+  int totalW   = LB_MULTI_COUNT * slotSize + (LB_MULTI_COUNT - 1) * spacing;
+  int startX   = (pageWidth - totalW) / 2;
+  int slotY    = 80;
+
+  for (int i = 0; i < LB_MULTI_COUNT; i++) {
+    int sx = startX + i * (slotSize + spacing);
+
+    if (i <= lbRevealIndex) {
+      int itemId = lbPullResults[i];
+      const LbItem& item = LB_ITEMS[itemId];
+      lbDrawRarityBorder(sx, slotY, slotSize, slotSize, item.rarity);
+      lbDrawItemIcon(sx + 8, slotY + 8, slotSize - 16, item.iconId, false);
+
+      // Name below slot
+      const char* name = item.name;
+      int tw = renderer.getTextWidth(SMALL_FONT_ID, name);
+      if (tw <= slotSize + 10) {
+        renderer.drawText(SMALL_FONT_ID, sx + (slotSize - tw) / 2, slotY + slotSize + 4, name);
+      } else {
+        char shortName[8];
+        strncpy(shortName, name, 6);
+        shortName[6] = '.';
+        shortName[7] = '\0';
+        int tw2 = renderer.getTextWidth(SMALL_FONT_ID, shortName);
+        renderer.drawText(SMALL_FONT_ID, sx + (slotSize - tw2) / 2, slotY + slotSize + 4, shortName);
+      }
+
+      // NEW badge
+      if (lbPullIsNew[i]) {
+        renderer.fillRect(sx, slotY - 12, 28, 12, true);
+        renderer.drawText(SMALL_FONT_ID, sx + 2, slotY - 12, "NEW", false);
+      }
+
+      // Star rating
+      int starCount = 1;
+      if (item.rarity == LB_RARE)           starCount = 2;
+      else if (item.rarity == LB_EPIC)      starCount = 3;
+      else if (item.rarity == LB_LEGENDARY) starCount = 5;
+      char starBuf[6] = {};
+      int sc = starCount < 5 ? starCount : 5;
+      for (int si = 0; si < sc; si++) starBuf[si] = '*';
+      starBuf[sc] = '\0';
+      int stw = renderer.getTextWidth(SMALL_FONT_ID, starBuf);
+      renderer.drawText(SMALL_FONT_ID, sx + (slotSize - stw) / 2, slotY + slotSize + 18, starBuf);
+    } else {
+      // Unrevealed: dithered box with "?"
+      lbFillDithered50(renderer, sx + 2, slotY + 2, slotSize - 4, slotSize - 4);
+      renderer.drawRect(sx, slotY, slotSize, slotSize);
+      char qm[] = "?";
+      int tw = renderer.getTextWidth(UI_12_FONT_ID, qm, EpdFontFamily::BOLD);
+      renderer.fillRect(sx + 4, slotY + slotSize / 2 - 12, slotSize - 8, 24, false);
+      lbFillDithered50(renderer, sx + 4, slotY + slotSize / 2 - 12, slotSize - 8, 24);
+      renderer.drawText(UI_12_FONT_ID, sx + (slotSize - tw) / 2,
+                        slotY + slotSize / 2 - 10, qm, true, EpdFontFamily::BOLD);
+    }
+  }
+
+  char progBuf[32];
+  snprintf(progBuf, sizeof(progBuf), "Revealing: %d of %d", lbRevealIndex + 1, LB_MULTI_COUNT);
+  renderer.drawCenteredText(UI_10_FONT_ID, slotY + slotSize + 50, progBuf);
+
+  if (lbRevealIndex >= LB_MULTI_COUNT - 1) {
+    int newCount = 0, dupeCount = 0;
+    for (int i = 0; i < LB_MULTI_COUNT; i++) {
+      if (lbPullIsNew[i]) newCount++; else dupeCount++;
+    }
+    char sumBuf[64];
+    if (dupeCount > 0) {
+      snprintf(sumBuf, sizeof(sumBuf), "%d new! %d dupes (+%d credits)", newCount, dupeCount, dupeCount * 25);
+    } else {
+      snprintf(sumBuf, sizeof(sumBuf), "%d new items!", newCount);
+    }
+    renderer.drawCenteredText(UI_10_FONT_ID, slotY + slotSize + 80, sumBuf, true, EpdFontFamily::BOLD);
+  }
+
+  const char* confirmLabel = (lbRevealIndex >= LB_MULTI_COUNT - 1) ? "Done" : "Next";
+  const auto labels = mappedInput.mapLabels("Back", confirmLabel, "", "");
+  GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
+}
+
+// ================================================================
+// LOOT BOX — RENDER: COLLECTION GRID
+// ================================================================
+
+void CasinoActivity::lbRenderCollection() {
+  const auto pageWidth  = renderer.getScreenWidth();
+  const auto pageHeight = renderer.getScreenHeight();
+  int totalPages = (LB_ITEM_COUNT + LB_ITEMS_PER_PAGE - 1) / LB_ITEMS_PER_PAGE;
+
+  char hdrBuf[40];
+  snprintf(hdrBuf, sizeof(hdrBuf), "Collection (%d/%d)", lbTotalCollected, LB_ITEM_COUNT);
+  renderer.drawCenteredText(UI_12_FONT_ID, 12, hdrBuf, true, EpdFontFamily::BOLD);
+  renderer.drawLine(15, 42, pageWidth - 15, 42);
+
+  int cellSize    = 70;
+  int cellSpacing = 12;
+  int gridW       = LB_GRID_COLS * cellSize + (LB_GRID_COLS - 1) * cellSpacing;
+  int gridStartX  = (pageWidth - gridW) / 2;
+  int gridStartY  = 60;
+
+  for (int row = 0; row < LB_GRID_ROWS; row++) {
+    for (int col = 0; col < LB_GRID_COLS; col++) {
+      int idx    = row * LB_GRID_COLS + col;
+      int itemId = lbCollectionPage * LB_ITEMS_PER_PAGE + idx;
+      if (itemId >= LB_ITEM_COUNT) continue;
+
+      int cx = gridStartX + col * (cellSize + cellSpacing);
+      int cy = gridStartY + row * (cellSize + cellSpacing + 20);
+
+      bool owned    = lbHasItem(itemId);
+      bool selected = (idx == lbCollectionCursor);
+
+      if (selected) {
+        renderer.drawRect(cx - 3, cy - 3, cellSize + 6, cellSize + 6);
+        renderer.drawRect(cx - 2, cy - 2, cellSize + 4, cellSize + 4);
+      }
+
+      renderer.drawRect(cx, cy, cellSize, cellSize);
+      lbDrawItemIcon(cx + 5, cy + 5, cellSize - 10, LB_ITEMS[itemId].iconId, !owned);
+
+      if (owned) {
+        const char* name = LB_ITEMS[itemId].name;
+        int tw = renderer.getTextWidth(SMALL_FONT_ID, name);
+        if (tw <= cellSize + 10) {
+          renderer.drawText(SMALL_FONT_ID, cx + (cellSize - tw) / 2, cy + cellSize + 2, name);
+        } else {
+          char shortName[7];
+          strncpy(shortName, name, 5);
+          shortName[5] = '.';
+          shortName[6] = '\0';
+          int tw2 = renderer.getTextWidth(SMALL_FONT_ID, shortName);
+          renderer.drawText(SMALL_FONT_ID, cx + (cellSize - tw2) / 2, cy + cellSize + 2, shortName);
+        }
+      } else {
+        renderer.drawText(SMALL_FONT_ID, cx + cellSize / 2 - 8, cy + cellSize + 2, "???");
+      }
+    }
+  }
+
+  // Progress bar
+  int barY  = pageHeight - 120;
+  int barW  = pageWidth - 80;
+  int barX  = 40;
+  int barH  = 16;
+  renderer.drawRect(barX, barY, barW, barH);
+  int fillW = (barW - 4) * lbTotalCollected / LB_ITEM_COUNT;
+  if (fillW > 0) {
+    lbFillDithered50(renderer, barX + 2, barY + 2, fillW, barH - 4);
+  }
+
+  char pageBuf[16];
+  snprintf(pageBuf, sizeof(pageBuf), "Page %d/%d", lbCollectionPage + 1, totalPages);
+  renderer.drawCenteredText(SMALL_FONT_ID, barY + 22, pageBuf);
+
+  const auto labels = mappedInput.mapLabels("Back", "Detail", "Left", "Right");
+  GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
+  GUI.drawSideButtonHints(renderer, "Pg-", "Pg+");
+}
+
+// ================================================================
+// LOOT BOX — RENDER: ITEM DETAIL
+// ================================================================
+
+void CasinoActivity::lbRenderItemDetail() {
+  if (lbDetailItemId < 0 || lbDetailItemId >= LB_ITEM_COUNT) return;
+  const auto pageWidth = renderer.getScreenWidth();
+  const LbItem& item = LB_ITEMS[lbDetailItemId];
+
+  int frameX = pageWidth / 2 - 110;
+  int frameY = 50;
+  int frameW = 220;
+  int frameH = 220;
+  lbDrawRarityBorder(frameX, frameY, frameW, frameH, item.rarity);
+
+  lbDrawItemIcon(frameX + 30, frameY + 30, frameW - 60, item.iconId, false);
+
+  int infoY = frameY + frameH + 20;
+  lbDrawStars(pageWidth / 2, infoY, item.rarity);
+
+  char rarBuf[32];
+  snprintf(rarBuf, sizeof(rarBuf), "~ %s ~", lbRarityName(item.rarity));
+  renderer.drawCenteredText(UI_10_FONT_ID, infoY + 30, rarBuf, true, EpdFontFamily::BOLD);
+
+  renderer.drawCenteredText(UI_12_FONT_ID, infoY + 65, item.name, true, EpdFontFamily::BOLD);
+
+  char numBuf[16];
+  snprintf(numBuf, sizeof(numBuf), "#%d of %d", lbDetailItemId + 1, LB_ITEM_COUNT);
+  renderer.drawCenteredText(SMALL_FONT_ID, infoY + 100, numBuf);
+
+  const auto labels = mappedInput.mapLabels("Back", "", "", "");
+  GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
+}
+
+// ================================================================
+// LOOT BOX — DRAW: LOOT BOX
+// ================================================================
+
+void CasinoActivity::lbDrawLootBox(int cx, int cy, int size, int shakeOffset) const {
+  int x = cx - size / 2 + shakeOffset;
+  int y = cy - size / 2;
+
+  lbFillDithered50(renderer, x + 4, y + 4, size, size);
+
+  // Box body
+  renderer.fillRect(x, y + size / 3, size, size * 2 / 3, false);
+  renderer.drawRect(x, y + size / 3, size, size * 2 / 3);
+  renderer.drawRect(x + 2, y + size / 3 + 2, size - 4, size * 2 / 3 - 4);
+
+  // Lid
+  renderer.fillRect(x - 4, y, size + 8, size / 3, false);
+  renderer.drawRect(x - 4, y, size + 8, size / 3);
+  renderer.drawRect(x - 2, y + 2, size + 4, size / 3 - 4);
+
+  // Ribbon cross
+  renderer.fillRect(cx + shakeOffset - 2, y, 5, size, true);
+  renderer.fillRect(x, cy - 2, size, 5, true);
+
+  renderer.drawCenteredText(UI_12_FONT_ID, cy + size / 6, "?", true, EpdFontFamily::BOLD);
+}
+
+// ================================================================
+// LOOT BOX — DRAW: RARITY BORDER
+// ================================================================
+
+void CasinoActivity::lbDrawRarityBorder(int x, int y, int w, int h, LbRarity rarity) const {
+  switch (rarity) {
+    case LB_COMMON:
+      renderer.drawRect(x, y, w, h);
+      break;
+    case LB_RARE:
+      renderer.drawRect(x, y, w, h);
+      renderer.drawRect(x + 3, y + 3, w - 6, h - 6);
+      break;
+    case LB_EPIC:
+      renderer.drawRect(x, y, w, h);
+      renderer.drawRect(x + 1, y + 1, w - 2, h - 2);
+      lbFillDithered25(renderer, x + 3, y + 3, w - 6, 3);
+      lbFillDithered25(renderer, x + 3, y + h - 6, w - 6, 3);
+      lbFillDithered25(renderer, x + 3, y + 3, 3, h - 6);
+      lbFillDithered25(renderer, x + w - 6, y + 3, 3, h - 6);
+      renderer.drawRect(x + 6, y + 6, w - 12, h - 12);
+      break;
+    case LB_LEGENDARY: {
+      renderer.fillRect(x, y, w, h, true);
+      renderer.fillRect(x + 4, y + 4, w - 8, h - 8, false);
+      lbFillDithered50(renderer, x + 5, y + 5, w - 10, 2);
+      lbFillDithered50(renderer, x + 5, y + h - 7, w - 10, 2);
+      lbFillDithered50(renderer, x + 5, y + 5, 2, h - 10);
+      lbFillDithered50(renderer, x + w - 7, y + 5, 2, h - 10);
+      int corners[4][2] = {{x+2, y+2}, {x+w-4, y+2}, {x+2, y+h-4}, {x+w-4, y+h-4}};
+      for (int ci = 0; ci < 4; ci++) {
+        int cx2 = corners[ci][0];
+        int cy2 = corners[ci][1];
+        renderer.drawPixel(cx2 + 1, cy2,     false);
+        renderer.drawPixel(cx2,     cy2 + 1, false);
+        renderer.drawPixel(cx2 + 2, cy2 + 1, false);
+        renderer.drawPixel(cx2 + 1, cy2 + 2, false);
+      }
+      break;
+    }
+  }
+}
+
+// ================================================================
+// LOOT BOX — DRAW: STARS
+// ================================================================
+
+void CasinoActivity::lbDrawStars(int cx, int y, LbRarity rarity) const {
+  int count = 1;
+  if (rarity == LB_RARE)           count = 2;
+  else if (rarity == LB_EPIC)      count = 3;
+  else if (rarity == LB_LEGENDARY) count = 5;
+
+  int starSpacing = 20;
+  int startX = cx - (count - 1) * starSpacing / 2;
+
+  for (int i = 0; i < count; i++) {
+    int sx = startX + i * starSpacing;
+    int r  = 6;
+    for (int a = 0; a < 5; a++) {
+      float angle = -1.5708f + a * 1.2566f;
+      int tx = sx + (int)(r * cosf(angle));
+      int ty = y  + (int)(r * sinf(angle));
+      renderer.drawLine(sx, y, tx, ty);
+    }
+  }
+}
+
+// ================================================================
+// LOOT BOX — DRAW: ITEM ICON
+// ================================================================
+
+void CasinoActivity::lbDrawItemIcon(int x, int y, int size, int iconId, bool locked) const {
+  int cx = x + size / 2;
+  int cy = y + size / 2;
+  int s  = size / 3;
+
+  if (locked) {
+    lbFillDithered75(renderer, x + 2, y + 2, size - 4, size - 4);
+    int lw = s, lh = s;
+    renderer.fillRect(cx - lw / 2, cy, lw, lh, false);
+    renderer.drawRect(cx - lw / 2, cy, lw, lh);
+    renderer.drawRect(cx - lw / 4, cy - lh / 2, lw / 2, lh / 2);
+    renderer.fillRect(cx - 1, cy + lh / 3, 3, 3, true);
+    return;
+  }
+
+  switch (iconId) {
+    case 0: { // Resistor
+      renderer.drawLine(x + 4, cy, cx - s, cy);
+      for (int i = 0; i < 4; i++) {
+        int bx = cx - s + i * s / 2;
+        renderer.drawLine(bx,          cy,          bx + s / 4, cy - s / 2);
+        renderer.drawLine(bx + s / 4,  cy - s / 2,  bx + s / 2, cy + s / 2);
+      }
+      renderer.drawLine(cx + s, cy, x + size - 4, cy);
+      break;
+    }
+    case 1: { // Capacitor
+      renderer.fillRect(cx - s / 3 - 2, cy - s, 3, s * 2, true);
+      renderer.fillRect(cx + s / 3,     cy - s, 3, s * 2, true);
+      renderer.drawLine(x + 4, cy, cx - s / 3 - 2, cy);
+      renderer.drawLine(cx + s / 3 + 3, cy, x + size - 4, cy);
+      break;
+    }
+    case 2: { // LED
+      renderer.drawLine(cx - s / 2, cy - s, cx - s / 2, cy + s);
+      renderer.drawLine(cx - s / 2, cy - s, cx + s / 2, cy);
+      renderer.drawLine(cx - s / 2, cy + s, cx + s / 2, cy);
+      renderer.fillRect(cx + s / 2, cy - s, 2, s * 2, true);
+      for (int i = -1; i <= 1; i++)
+        renderer.drawLine(cx + s / 2 + 3, cy + i * s / 2, cx + s, cy + i * s / 2 - s / 3);
+      break;
+    }
+    case 3: { // Battery
+      renderer.drawRect(cx - s, cy - s / 2, s * 3 / 2, s);
+      renderer.fillRect(cx + s / 2 + 1, cy - s / 4, s / 3, s / 2, true);
+      renderer.drawLine(cx - s / 2, cy - s / 4, cx - s / 2, cy + s / 4);
+      renderer.drawLine(cx - s + 3,          cy - s / 6, cx - s + 3 + s / 4, cy - s / 6);
+      renderer.drawLine(cx - s + 3 + s / 8,  cy - s / 3, cx - s + 3 + s / 8, cy);
+      break;
+    }
+    case 4: { // Antenna
+      renderer.drawLine(cx, cy + s, cx, cy - s / 2);
+      renderer.drawLine(cx, cy - s / 2, cx - s / 2, cy - s);
+      renderer.drawLine(cx, cy - s / 2, cx + s / 2, cy - s);
+      renderer.drawLine(cx + s / 2 + 2, cy - s / 3, cx + s / 2 + 4, cy - s / 2);
+      renderer.drawLine(cx + s / 2 + 5, cy - s / 4, cx + s / 2 + 7, cy - s / 2);
+      break;
+    }
+    case 5: { // USB Plug
+      renderer.drawRect(cx - s / 2, cy - s, s, s * 2);
+      renderer.fillRect(cx - s / 4, cy - s - s / 3, s / 2, s / 3, true);
+      renderer.drawLine(cx - s / 6, cy - s / 2, cx - s / 6, cy + s / 2);
+      renderer.drawLine(cx + s / 6, cy - s / 2, cx + s / 6, cy + s / 2);
+      break;
+    }
+    case 6: { // SD Card
+      renderer.drawRect(cx - s / 2, cy - s, s, s * 2);
+      renderer.drawLine(cx - s / 2, cy - s, cx - s / 4, cy - s - s / 3);
+      renderer.drawLine(cx - s / 4, cy - s - s / 3, cx + s / 2, cy - s - s / 3);
+      renderer.fillRect(cx - s / 4, cy - s / 2, s / 2, 2, true);
+      renderer.fillRect(cx - s / 4, cy,          s / 2, 2, true);
+      break;
+    }
+    case 7: { // Floppy Disk
+      renderer.drawRect(cx - s, cy - s, s * 2, s * 2);
+      renderer.fillRect(cx - s / 2, cy - s, s, s / 2, true);
+      renderer.fillRect(cx - s / 3, cy + s / 4, s * 2 / 3, s * 3 / 4, false);
+      renderer.drawRect(cx - s / 3, cy + s / 4, s * 2 / 3, s * 3 / 4);
+      break;
+    }
+    case 8: { // Mouse
+      renderer.drawRect(cx - s / 2, cy - s, s, s * 2);
+      renderer.drawLine(cx, cy - s, cx, cy - s / 3);
+      renderer.drawLine(cx - s / 2, cy - s / 3, cx + s / 2, cy - s / 3);
+      renderer.drawLine(cx - s / 2, cy + s, cx + s / 2, cy + s);
+      break;
+    }
+    case 9: { // Keyboard Key
+      renderer.drawRect(cx - s / 2, cy - s / 2, s, s);
+      renderer.drawRect(cx - s / 2 + 2, cy - s / 2 + 2, s - 4, s - 4);
+      char key[] = "A";
+      int tw = renderer.getTextWidth(SMALL_FONT_ID, key);
+      renderer.drawText(SMALL_FONT_ID, cx - tw / 2, cy - 5, key, true, EpdFontFamily::BOLD);
+      break;
+    }
+    case 10: { // Pixel Heart
+      for (int dy = -s; dy <= s; dy++) {
+        for (int dx = -s; dx <= s; dx++) {
+          int lx = dx + s / 3, ly = dy + s / 3;
+          int rx = dx - s / 3, ry = dy + s / 3;
+          bool lb2 = (lx * lx + ly * ly * 2) <= s * s / 2;
+          bool rb2 = (rx * rx + ry * ry * 2) <= s * s / 2;
+          bool tri = (dy >= 0) && (abs(dx) <= s - dy);
+          if (lb2 || rb2 || tri) renderer.drawPixel(cx + dx, cy + dy, true);
+        }
+      }
+      break;
+    }
+    case 11: { // Coffee Cup
+      renderer.drawRect(cx - s / 2, cy - s / 2, s, s + s / 3);
+      renderer.drawRect(cx + s / 2, cy - s / 4, s / 3, s / 2);
+      for (int i = 0; i < 3; i++) {
+        int sx2 = cx - s / 4 + i * s / 4;
+        renderer.drawPixel(sx2,     cy - s / 2 - 2, true);
+        renderer.drawPixel(sx2 + 1, cy - s / 2 - 4, true);
+        renderer.drawPixel(sx2,     cy - s / 2 - 6, true);
+      }
+      break;
+    }
+    case 12: { // Light Bulb
+      for (int a = 0; a < 360; a += 10) {
+        float rad = a * 3.14159f / 180.0f;
+        renderer.drawPixel(cx + (int)(s / 2 * cosf(rad)),
+                           cy - s / 4 + (int)(s / 2 * sinf(rad)), true);
+      }
+      renderer.fillRect(cx - s / 4, cy + s / 4, s / 2, s / 3, true);
+      break;
+    }
+    case 13: { // Wrench
+      renderer.drawLine(cx - s, cy + s, cx + s / 2, cy - s / 2);
+      renderer.drawLine(cx + s / 2, cy - s / 2, cx + s, cy - s / 3);
+      renderer.drawLine(cx + s / 2, cy - s / 2, cx + s / 3, cy - s);
+      break;
+    }
+    case 14: { // Magnifier
+      for (int a = 0; a < 360; a += 10) {
+        float rad = a * 3.14159f / 180.0f;
+        renderer.drawPixel(cx - s / 4 + (int)(s / 2 * cosf(rad)),
+                           cy - s / 4 + (int)(s / 2 * sinf(rad)), true);
+      }
+      renderer.drawLine(cx + s / 6,     cy + s / 6,     cx + s,     cy + s);
+      renderer.drawLine(cx + s / 6 + 1, cy + s / 6,     cx + s + 1, cy + s);
+      break;
+    }
+    case 15: { // Clock
+      for (int a = 0; a < 360; a += 10) {
+        float rad = a * 3.14159f / 180.0f;
+        renderer.drawPixel(cx + (int)(s * cosf(rad)), cy + (int)(s * sinf(rad)), true);
+      }
+      renderer.drawLine(cx, cy, cx,          cy - s * 2 / 3);
+      renderer.drawLine(cx, cy, cx + s / 2,  cy);
+      break;
+    }
+    case 16: { // Envelope
+      renderer.drawRect(cx - s, cy - s / 2, s * 2, s);
+      renderer.drawLine(cx - s, cy - s / 2, cx, cy + s / 4);
+      renderer.drawLine(cx + s, cy - s / 2, cx, cy + s / 4);
+      break;
+    }
+    case 17: { // Star (5-pointed spokes)
+      for (int i = 0; i < 5; i++) {
+        float angle = -1.5708f + i * 1.2566f;
+        int tx = cx + (int)(s * cosf(angle));
+        int ty = cy + (int)(s * sinf(angle));
+        renderer.drawLine(cx, cy, tx, ty);
+      }
+      break;
+    }
+    case 18: { // Moon
+      for (int a = 0; a < 360; a += 5) {
+        float rad = a * 3.14159f / 180.0f;
+        renderer.drawPixel(cx + (int)(s * cosf(rad)), cy + (int)(s * sinf(rad)), true);
+      }
+      for (int dy2 = -s; dy2 <= s; dy2++) {
+        for (int dx2 = -s; dx2 <= s; dx2++) {
+          if (dx2 * dx2 + dy2 * dy2 <= (s - 2) * (s - 2)) {
+            int ox = dx2 + s / 3;
+            if (ox * ox + dy2 * dy2 <= s * s)
+              renderer.drawPixel(cx + dx2 + s / 3, cy + dy2, false);
+          }
+        }
+      }
+      break;
+    }
+    case 19: { // Cloud
+      for (int i = -1; i <= 1; i++) {
+        for (int a = 0; a < 360; a += 10) {
+          float rad = a * 3.14159f / 180.0f;
+          int r2 = s / 2;
+          renderer.drawPixel(cx + i * s / 3 + (int)(r2 * cosf(rad)),
+                             cy + (int)(r2 * sinf(rad)), true);
+        }
+      }
+      for (int a = 0; a < 360; a += 10) {
+        float rad = a * 3.14159f / 180.0f;
+        renderer.drawPixel(cx + (int)(s / 3 * cosf(rad)),
+                           cy - s / 3 + (int)(s / 3 * sinf(rad)), true);
+      }
+      break;
+    }
+    case 20: { // Microchip
+      renderer.drawRect(cx - s / 2, cy - s / 2, s, s);
+      for (int i = 0; i < 4; i++) {
+        int py = cy - s / 2 + 2 + i * (s - 4) / 3;
+        renderer.fillRect(cx - s / 2 - s / 4, py, s / 4, 2, true);
+        renderer.fillRect(cx + s / 2,          py, s / 4, 2, true);
+      }
+      renderer.fillRect(cx - s / 2 + 2, cy - s / 2 + 2, 3, 3, true);
+      break;
+    }
+    case 21: { // Circuit Board
+      renderer.drawRect(cx - s, cy - s, s * 2, s * 2);
+      renderer.drawLine(cx - s / 2, cy - s, cx - s / 2, cy);
+      renderer.drawLine(cx - s / 2, cy, cx + s / 2, cy);
+      renderer.drawLine(cx + s / 2, cy, cx + s / 2, cy + s);
+      renderer.fillRect(cx - s / 2 - 2, cy - 2, 4, 4, true);
+      renderer.fillRect(cx + s / 2 - 2, cy + s - 2, 4, 4, true);
+      break;
+    }
+    case 22: { // Router
+      renderer.drawRect(cx - s, cy, s * 2, s / 2);
+      renderer.drawLine(cx - s / 2, cy, cx - s / 3, cy - s);
+      renderer.drawLine(cx + s / 2, cy, cx + s / 3, cy - s);
+      renderer.fillRect(cx - s / 3 - 2, cy - s - 2, 4, 4, true);
+      renderer.fillRect(cx + s / 3 - 2, cy - s - 2, 4, 4, true);
+      for (int i = 0; i < 3; i++)
+        renderer.fillRect(cx - s / 2 + i * s / 2, cy + s / 6, 3, 3, true);
+      break;
+    }
+    case 23: { // Satellite
+      renderer.drawRect(cx - s / 4, cy - s / 4, s / 2, s / 2);
+      renderer.fillRect(cx - s,       cy - s / 6, s * 2 / 3, s / 3, true);
+      renderer.fillRect(cx + s / 4,   cy - s / 6, s * 2 / 3, s / 3, true);
+      renderer.drawLine(cx, cy - s / 4, cx, cy - s);
+      renderer.fillRect(cx - 2, cy - s - 2, 4, 4, true);
+      break;
+    }
+    case 24: { // Robot Head
+      renderer.drawRect(cx - s, cy - s / 2, s * 2, s + s / 2);
+      renderer.fillRect(cx - s / 2, cy - s / 4, s / 3, s / 3, true);
+      renderer.fillRect(cx + s / 4,  cy - s / 4, s / 3, s / 3, true);
+      renderer.drawLine(cx - s / 2, cy + s / 3, cx + s / 2, cy + s / 3);
+      renderer.drawLine(cx, cy - s / 2, cx, cy - s);
+      renderer.fillRect(cx - 2, cy - s - 3, 5, 3, true);
+      break;
+    }
+    case 25: { // Game Boy
+      renderer.drawRect(cx - s / 2, cy - s, s, s * 2);
+      renderer.fillRect(cx - s / 3, cy - s + s / 4, s * 2 / 3, s / 2, false);
+      renderer.drawRect(cx - s / 3, cy - s + s / 4, s * 2 / 3, s / 2);
+      renderer.fillRect(cx + s / 6, cy + s / 3, 4, 4, true);
+      renderer.fillRect(cx - s / 4, cy + s / 3, 4, 4, true);
+      renderer.fillRect(cx - s / 3, cy + s / 2, s / 4, 2, true);
+      renderer.fillRect(cx - s / 4, cy + s / 3, 2, s / 4, true);
+      break;
+    }
+    case 26: { // Oscilloscope
+      renderer.drawRect(cx - s, cy - s / 2, s * 2, s);
+      for (int px = -s + 2; px < s - 2; px++) {
+        float wave = sinf(px * 3.14159f / (float)(s / 2));
+        int py = cy + (int)(s / 4 * wave);
+        renderer.drawPixel(cx + px, py, true);
+      }
+      break;
+    }
+    case 27: { // Soldering Iron
+      renderer.drawLine(cx - s, cy + s, cx + s / 3, cy - s / 3);
+      renderer.drawLine(cx - s + 1, cy + s, cx + s / 3 + 1, cy - s / 3);
+      renderer.drawLine(cx + s / 3, cy - s / 3, cx + s, cy - s);
+      renderer.fillRect(cx + s - 2, cy - s - 2, 4, 4, true);
+      break;
+    }
+    case 28: { // Drone
+      renderer.drawLine(cx - s, cy - s, cx + s, cy + s);
+      renderer.drawLine(cx + s, cy - s, cx - s, cy + s);
+      renderer.fillRect(cx - 2, cy - 2, 4, 4, true);
+      for (int corner = 0; corner < 4; corner++) {
+        int dx2 = (corner & 1) ? s : -s;
+        int dy2 = (corner & 2) ? s : -s;
+        renderer.drawRect(cx + dx2 - 3, cy + dy2 - 3, 6, 6);
+      }
+      break;
+    }
+    case 29: { // VR Headset
+      renderer.drawRect(cx - s, cy - s / 3, s * 2, s * 2 / 3);
+      renderer.fillRect(cx - s / 2, cy - s / 6, s / 3, s / 3, true);
+      renderer.fillRect(cx + s / 4,  cy - s / 6, s / 3, s / 3, true);
+      renderer.drawLine(cx - s, cy, cx - s - s / 3, cy - s / 2);
+      renderer.drawLine(cx + s, cy, cx + s + s / 3, cy - s / 2);
+      break;
+    }
+    case 30: { // Server Rack
+      for (int i = 0; i < 3; i++) {
+        int ry = cy - s + i * (s * 2 / 3);
+        renderer.drawRect(cx - s / 2, ry, s, s * 2 / 3 - 2);
+        renderer.fillRect(cx + s / 3, ry + 3, 3, 3, true);
+      }
+      break;
+    }
+    case 31: { // Ethernet Jack
+      renderer.drawRect(cx - s / 2, cy - s / 3, s, s * 2 / 3);
+      renderer.drawRect(cx - s / 3, cy - s / 3 - s / 4, s * 2 / 3, s / 4);
+      for (int i = 0; i < 4; i++)
+        renderer.fillRect(cx - s / 4 + i * s / 6, cy - s / 3 - s / 6, 2, s / 6, true);
+      break;
+    }
+    case 32: { // Raspberry Pi
+      renderer.drawRect(cx - s, cy - s / 2, s * 2, s);
+      renderer.fillRect(cx - s + 2, cy - s / 2 + 2, s / 3, s / 4, true);
+      for (int i = 0; i < 5; i++)
+        renderer.fillRect(cx + s / 2 + i * 3 - 7, cy - s / 2 - 3, 2, 3, true);
+      renderer.fillRect(cx, cy - s / 4, s / 2, s / 3, false);
+      renderer.drawRect(cx, cy - s / 4, s / 2, s / 3);
+      break;
+    }
+    case 33: { // Arduino
+      renderer.drawRect(cx - s, cy - s / 2, s * 2, s);
+      renderer.fillRect(cx - s / 2, cy - s / 2 - 2, s, 2, true);
+      renderer.fillRect(cx - s / 4, cy + s / 2, s / 2, 2, true);
+      renderer.fillRect(cx + s / 3, cy - s / 4, s / 3, s / 4, true);
+      break;
+    }
+    case 34: { // Logic Analyzer
+      renderer.drawRect(cx - s / 2, cy - s / 3, s, s * 2 / 3);
+      for (int i = 0; i < 4; i++) {
+        int px = cx - s / 3 + i * s / 4;
+        renderer.drawLine(px, cy - s / 3, px, cy - s);
+        renderer.fillRect(px - 1, cy - s - 2, 3, 3, true);
+      }
+      break;
+    }
+    case 35: { // Golden Chip
+      lbFillDithered25(renderer, cx - s, cy - s, s * 2, s * 2);
+      renderer.drawRect(cx - s, cy - s, s * 2, s * 2);
+      renderer.drawRect(cx - s + 2, cy - s + 2, s * 2 - 4, s * 2 - 4);
+      for (int i = 0; i < 3; i++) {
+        int py = cy - s + 4 + i * (s * 2 - 8) / 2;
+        renderer.fillRect(cx - s - s / 3, py, s / 3, 3, true);
+        renderer.fillRect(cx + s,          py, s / 3, 3, true);
+      }
+      break;
+    }
+    case 36: { // Cyber Eye
+      for (int a = 0; a < 360; a += 5) {
+        float rad = a * 3.14159f / 180.0f;
+        renderer.drawPixel(cx + (int)(s * cosf(rad)), cy + (int)(s * sinf(rad)), true);
+      }
+      for (int dy2 = -s / 3; dy2 <= s / 3; dy2++) {
+        int dx2 = 0;
+        while ((dx2 + 1) * (dx2 + 1) + dy2 * dy2 <= (s / 3) * (s / 3)) dx2++;
+        if (dx2 > 0) renderer.fillRect(cx - dx2, cy + dy2, dx2 * 2 + 1, 1, true);
+      }
+      renderer.drawLine(cx - s - 3, cy, cx - s, cy);
+      renderer.drawLine(cx + s, cy, cx + s + 3, cy);
+      renderer.drawLine(cx, cy - s, cx, cy - s - 3);
+      break;
+    }
+    case 37: { // Plasma Ball
+      lbFillDithered25(renderer, cx - s, cy - s, s * 2, s * 2);
+      for (int a = 0; a < 360; a += 5) {
+        float rad = a * 3.14159f / 180.0f;
+        renderer.drawPixel(cx + (int)(s * cosf(rad)), cy + (int)(s * sinf(rad)), true);
+      }
+      renderer.drawLine(cx, cy, cx + s / 2, cy - s / 3);
+      renderer.drawLine(cx + s / 2, cy - s / 3, cx + s / 4, cy - s / 6);
+      renderer.drawLine(cx + s / 4, cy - s / 6, cx + s * 2 / 3, cy - s * 2 / 3);
+      renderer.drawLine(cx, cy, cx - s / 3, cy + s / 2);
+      renderer.drawLine(cx - s / 3, cy + s / 2, cx - s / 6, cy + s / 3);
+      break;
+    }
+    case 38: { // Hologram
+      renderer.drawLine(cx,      cy - s, cx + s,  cy);
+      renderer.drawLine(cx + s,  cy,     cx,      cy + s);
+      renderer.drawLine(cx,      cy + s, cx - s,  cy);
+      renderer.drawLine(cx - s,  cy,     cx,      cy - s);
+      lbFillDithered25(renderer, cx - s / 2, cy - s / 2, s, s);
+      break;
+    }
+    case 39: { // Quantum Bit
+      for (int a = 0; a < 360; a += 8) {
+        float rad = a * 3.14159f / 180.0f;
+        int r2 = s * 2 / 3;
+        renderer.drawPixel(cx - s / 4 + (int)(r2 * cosf(rad)), cy + (int)(r2 * sinf(rad)), true);
+        renderer.drawPixel(cx + s / 4 + (int)(r2 * cosf(rad)), cy + (int)(r2 * sinf(rad)), true);
+      }
+      lbFillDithered50(renderer, cx - s / 6, cy - s / 3, s / 3, s * 2 / 3);
+      break;
+    }
+    case 40: { // Neural Net
+      int nodes[5][2] = {{cx, cy - s}, {cx - s, cy}, {cx + s, cy}, {cx - s / 2, cy + s}, {cx + s / 2, cy + s}};
+      for (int i = 0; i < 5; i++) {
+        renderer.fillRect(nodes[i][0] - 2, nodes[i][1] - 2, 5, 5, true);
+        for (int j = i + 1; j < 5; j++)
+          renderer.drawLine(nodes[i][0], nodes[i][1], nodes[j][0], nodes[j][1]);
+      }
+      break;
+    }
+    case 41: { // Infinity Loop
+      for (int a = 0; a < 360; a += 5) {
+        float rad = a * 3.14159f / 180.0f;
+        float ix = s * 2 / 3 * cosf(rad);
+        float iy = s / 2 * sinf(rad) * cosf(rad);
+        renderer.drawPixel(cx + (int)ix, cy + (int)iy, true);
+      }
+      break;
+    }
+    case 42: { // Crypto Key
+      renderer.drawRect(cx - s, cy - s / 4, s, s / 2);
+      renderer.drawLine(cx, cy, cx + s, cy);
+      renderer.drawLine(cx + s / 2,     cy, cx + s / 2,     cy + s / 3);
+      renderer.drawLine(cx + s * 3 / 4, cy, cx + s * 3 / 4, cy + s / 4);
+      break;
+    }
+    case 43: { // Zero Day
+      lbFillDithered50(renderer, cx - s / 2, cy - s / 2, s, s);
+      renderer.drawRect(cx - s / 2, cy - s / 2, s, s);
+      renderer.fillRect(cx - s / 3, cy - s / 4, s / 4, s / 4, false);
+      renderer.fillRect(cx + s / 8, cy - s / 4, s / 4, s / 4, false);
+      renderer.fillRect(cx - s / 6, cy + s / 6, s / 3, 2, false);
+      break;
+    }
+    case 44: { // Black Box
+      renderer.fillRect(cx - s, cy - s, s * 2, s * 2, true);
+      lbFillDithered50(renderer, cx - s + 3, cy - s + 3, s * 2 - 6, s * 2 - 6);
+      renderer.drawRect(cx - s / 3, cy - s / 3, s * 2 / 3, s * 2 / 3);
+      break;
+    }
+    case 45: { // The Kernel
+      renderer.fillRect(cx - s - 2, cy - s - 2, s * 2 + 4, s * 2 + 4, true);
+      renderer.fillRect(cx - s, cy - s + s / 3, s * 2, s * 2 - s / 3, false);
+      renderer.fillRect(cx - s, cy - s, s * 2, s / 3, true);
+      renderer.fillRect(cx + s - s / 4, cy - s + 2, s / 5, s / 5, false);
+      for (int i = 0; i < 5; i++)
+        renderer.fillRect(cx - s + 4 + i * 4, cy - s / 4, 2, 3, true);
+      renderer.fillRect(cx - s + 24, cy - s / 4, 3, 5, true);
+      break;
+    }
+    case 46: { // Root Shell
+      renderer.drawRect(cx - s, cy - s, s * 2, s * 2);
+      renderer.fillRect(cx - s, cy - s, s * 2, s / 3, true);
+      renderer.fillRect(cx + s - s / 4, cy - s + 2, s / 5, s / 5, false);
+      renderer.drawLine(cx - s / 2,       cy - s / 6, cx - s / 2 + s / 3, cy - s / 6);
+      renderer.drawLine(cx - s / 2,       cy + s / 6, cx - s / 2 + s / 3, cy + s / 6);
+      renderer.drawLine(cx - s / 3, cy - s / 3, cx - s / 3, cy + s / 3);
+      renderer.drawLine(cx - s / 6, cy - s / 3, cx - s / 6, cy + s / 3);
+      break;
+    }
+    case 47: { // Packet Ghost
+      for (int a = 0; a <= 180; a += 5) {
+        float rad = a * 3.14159f / 180.0f;
+        renderer.drawPixel(cx + (int)(s * 2 / 3 * cosf(rad)),
+                           cy - s / 4 + (int)(s * 2 / 3 * -sinf(rad)), true);
+      }
+      renderer.drawLine(cx - s * 2 / 3, cy - s / 4, cx - s * 2 / 3, cy + s);
+      renderer.drawLine(cx + s * 2 / 3, cy - s / 4, cx + s * 2 / 3, cy + s);
+      renderer.drawLine(cx - s * 2 / 3, cy + s, cx - s / 3, cy + s / 2);
+      renderer.drawLine(cx - s / 3,     cy + s / 2, cx,          cy + s);
+      renderer.drawLine(cx,             cy + s,     cx + s / 3,  cy + s / 2);
+      renderer.drawLine(cx + s / 3,     cy + s / 2, cx + s * 2 / 3, cy + s);
+      renderer.fillRect(cx - s / 3, cy - s / 3, 3, 3, true);
+      renderer.fillRect(cx + s / 4, cy - s / 3, 3, 3, true);
+      break;
+    }
+    case 48: { // E-Ink Dragon
+      for (int dy2 = -s / 2; dy2 <= s / 2; dy2++) {
+        float ratio = 1.0f - (float)(dy2 * dy2) / ((float)(s / 2) * (s / 2));
+        if (ratio < 0.0f) ratio = 0.0f;
+        int hw = (int)(s * sqrtf(ratio));
+        if (hw > 0) renderer.fillRect(cx - hw / 2, cy + dy2, hw, 1, true);
+      }
+      renderer.drawLine(cx - s / 2, cy - s / 4, cx - s, cy - s);
+      renderer.drawLine(cx - s,     cy - s,      cx - s / 3, cy);
+      renderer.drawLine(cx + s / 2, cy - s / 4, cx + s, cy - s);
+      renderer.drawLine(cx + s,     cy - s,      cx + s / 3, cy);
+      renderer.drawLine(cx + s / 2, cy - s / 4, cx + s, cy);
+      renderer.drawLine(cx + s / 2, cy + s / 4, cx + s, cy);
+      renderer.drawLine(cx - s / 2, cy,           cx - s, cy + s / 2);
+      renderer.drawLine(cx - s,     cy + s / 2,   cx - s + s / 3, cy + s);
+      break;
+    }
+    case 49: { // biscuit. Logo
+      for (int a = 0; a < 360; a += 5) {
+        float rad = a * 3.14159f / 180.0f;
+        renderer.drawPixel(cx + (int)(s * cosf(rad)),       cy + (int)(s * sinf(rad)), true);
+        renderer.drawPixel(cx + (int)((s - 2) * cosf(rad)), cy + (int)((s - 2) * sinf(rad)), true);
+      }
+      renderer.fillRect(cx - s / 3, cy - s / 2, 2, s, true);
+      renderer.drawRect(cx - s / 3, cy, s / 2, s / 3);
+      renderer.fillRect(cx + s / 4, cy + s / 4, 3, 3, true);
+      break;
+    }
+    default: {
+      renderer.drawRect(x + 2, y + 2, size - 4, size - 4);
+      char buf[4];
+      snprintf(buf, sizeof(buf), "%d", iconId % 100);
+      int tw = renderer.getTextWidth(SMALL_FONT_ID, buf);
+      renderer.drawText(SMALL_FONT_ID, cx - tw / 2, cy - 5, buf);
+      break;
+    }
   }
 }

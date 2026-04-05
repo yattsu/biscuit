@@ -52,10 +52,21 @@ void PacketMonitorActivity::onPacket(const uint8_t* buf, uint16_t len, int rssi)
     }
   }
   portEXIT_CRITICAL(&statsMux);
+
+  // Write to PCAP file if recording
+  if (pcapRecording && pcapFileOpen) {
+    if (captureMode == CAPTURE_EAPOL_ONLY && !isEapolPacket(buf, len)) return;
+    if (isEapolPacket(buf, len)) eapolFound = true;
+    if (xSemaphoreTake(fileMux, pdMS_TO_TICKS(50)) == pdTRUE) {
+      writePcapPacket(buf, len);
+      xSemaphoreGive(fileMux);
+    }
+  }
 }
 
 void PacketMonitorActivity::onEnter() {
   Activity::onEnter();
+  if (!fileMux) fileMux = xSemaphoreCreateMutex();
   totalPackets = 0;
   intervalPackets = 0;
   packetsPerSec = 0;
@@ -67,12 +78,20 @@ void PacketMonitorActivity::onEnter() {
   lastUpdateTime = millis();
   lastHopTime = millis();
 
+  // Reset recording state
+  pcapRecording = false;
+  pcapFileOpen = false;
+  packetsSaved = 0;
+  pcapFileSize = 0;
+  eapolFound = false;
+
   startMonitor();
   requestUpdate();
 }
 
 void PacketMonitorActivity::onExit() {
   Activity::onExit();
+  stopPcapRecording();
   stopMonitor();
 }
 
@@ -117,6 +136,80 @@ void PacketMonitorActivity::saveToCsv() {
   LOG_DBG("PKTMON", "Saved stats to %s", filename);
 }
 
+void PacketMonitorActivity::startPcapRecording() {
+  Storage.mkdir("/biscuit");
+  Storage.mkdir("/biscuit/pcap");
+  char filename[64];
+  snprintf(filename, sizeof(filename), "/biscuit/pcap/capture_%lu.pcap", millis());
+  pcapFile = Storage.open(filename, O_WRITE | O_CREAT | O_TRUNC);
+  if (!pcapFile) {
+    LOG_ERR("PKTMON", "Failed to open PCAP file");
+    return;
+  }
+  pcapFileOpen = true;
+  packetsSaved = 0;
+  pcapFileSize = 0;
+  eapolFound = false;
+  writePcapHeader();
+  pcapRecording = true;
+}
+
+void PacketMonitorActivity::stopPcapRecording() {
+  pcapRecording = false;
+  if (fileMux && xSemaphoreTake(fileMux, pdMS_TO_TICKS(1000)) == pdTRUE) {
+    if (pcapFileOpen) {
+      pcapFile.flush();
+      pcapFile.close();
+      pcapFileOpen = false;
+    }
+    xSemaphoreGive(fileMux);
+  }
+}
+
+void PacketMonitorActivity::writePcapHeader() {
+  // PCAP global header
+  struct {
+    uint32_t magic = 0xa1b2c3d4;
+    uint16_t version_major = 2;
+    uint16_t version_minor = 4;
+    int32_t thiszone = 0;
+    uint32_t sigfigs = 0;
+    uint32_t snaplen = 65535;
+    uint32_t network = 105;  // IEEE 802.11
+  } __attribute__((packed)) header;
+
+  pcapFile.write(reinterpret_cast<const uint8_t*>(&header), sizeof(header));
+  pcapFileSize = sizeof(header);
+}
+
+void PacketMonitorActivity::writePcapPacket(const uint8_t* data, uint16_t len) {
+  // PCAP packet header
+  uint32_t ts = millis() / 1000;
+  uint32_t ts_usec = (millis() % 1000) * 1000;
+
+  struct {
+    uint32_t ts_sec;
+    uint32_t ts_usec;
+    uint32_t incl_len;
+    uint32_t orig_len;
+  } __attribute__((packed)) pktHeader = {ts, ts_usec, len, len};
+
+  pcapFile.write(reinterpret_cast<const uint8_t*>(&pktHeader), sizeof(pktHeader));
+  pcapFile.write(data, len);
+  pcapFileSize = pcapFileSize + sizeof(pktHeader) + len;
+  packetsSaved = packetsSaved + 1;
+}
+
+bool PacketMonitorActivity::isEapolPacket(const uint8_t* data, uint16_t len) const {
+  if (len < 36) return false;
+  // Check both standard data frame offset (24+6=30) and QoS data frame offset (26+6=32)
+  // LLC/SNAP header ends with ethertype at offset 30-31 or 32-33
+  for (int i = 30; i <= 33 && i + 1 < len; i++) {
+    if (data[i] == 0x88 && data[i + 1] == 0x8E) return true;
+  }
+  return false;
+}
+
 void PacketMonitorActivity::loop() {
   if (!monitoring) return;
 
@@ -149,10 +242,14 @@ void PacketMonitorActivity::loop() {
     requestUpdate();
   }
 
-  // Toggle auto-hop
+  // Toggle PCAP recording (long press) or auto-hop (short press)
   if (mappedInput.wasReleased(MappedInputManager::Button::Confirm)) {
     if (mappedInput.getHeldTime() >= 500) {
-      saveToCsv();
+      if (!pcapRecording) {
+        startPcapRecording();
+      } else {
+        stopPcapRecording();
+      }
     } else {
       autoHop = !autoHop;
     }
@@ -173,6 +270,7 @@ void PacketMonitorActivity::render(RenderLock&&) {
 
   std::string chInfo = std::string(tr(STR_CHANNEL)) + " " + std::to_string(currentChannel) +
                        (autoHop ? " (auto)" : " (manual)");
+  if (pcapRecording) chInfo += " REC";
   GUI.drawHeader(renderer, Rect{0, metrics.topPadding, pageWidth, metrics.headerHeight}, tr(STR_PACKET_MONITOR),
                  chInfo.c_str());
 
@@ -226,8 +324,23 @@ void PacketMonitorActivity::render(RenderLock&&) {
     renderer.drawText(SMALL_FONT_ID, bx + (barWidth - tw) / 2, y + chartHeight + 3, label);
   }
 
+  y += chartHeight + fontH + 10;
+
+  // Recording info
+  if (pcapRecording) {
+    char recStr[48];
+    snprintf(recStr, sizeof(recStr), "REC: %lu packets, %lu KB",
+             static_cast<uint32_t>(packetsSaved),
+             static_cast<uint32_t>(pcapFileSize) / 1024);
+    renderer.drawText(UI_10_FONT_ID, leftPad, y, recStr, true, EpdFontFamily::BOLD);
+    y += fontH + 6;
+    if (eapolFound) {
+      renderer.drawText(UI_10_FONT_ID, leftPad, y, "EAPOL!", true, EpdFontFamily::BOLD);
+    }
+  }
+
   const auto labels = mappedInput.mapLabels(tr(STR_EXIT), autoHop ? "Manual" : "Auto", "Ch-", "Ch+");
-  GUI.drawButtonHints(renderer, labels.btn1, "Hold: CSV", labels.btn3, labels.btn4);
+  GUI.drawButtonHints(renderer, labels.btn1, "Hold: REC", labels.btn3, labels.btn4);
 
   renderer.displayBuffer();
 }
