@@ -12,6 +12,7 @@
 void AppCategoryActivity::onEnter() {
   Activity::onEnter();
   selectorIndex = 0;
+  backPressedHere = false;
 
   // Skip initial section header if present
   const int count = static_cast<int>(entries.size());
@@ -34,8 +35,9 @@ void AppCategoryActivity::loop() {
       disclaimerShown = false;
       requestUpdate();
     }
-    if (mappedInput.wasPressed(MappedInputManager::Button::Back)) {
+    if (mappedInput.wasReleased(MappedInputManager::Button::Back)) {
       finish();
+      return;
     }
     return;
   }
@@ -81,8 +83,18 @@ void AppCategoryActivity::loop() {
     }
   }
 
+  // Track that Back was physically pressed while this activity is active on screen
+  if (mappedInput.wasPressed(MappedInputManager::Button::Back)) {
+    backPressedHere = true;
+  }
+
   // Back button: short press = back one level, long press (1500ms+) = dashboard
   if (mappedInput.wasReleased(MappedInputManager::Button::Back)) {
+    if (!backPressedHere) {
+      // Stale release from child activity — ignore it
+      return;
+    }
+    backPressedHere = false;
     if (mappedInput.getHeldTime() >= 1500) {
       onGoHome();  // Long-press: go straight to dashboard
     } else {

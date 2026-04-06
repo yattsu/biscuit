@@ -48,4 +48,5 @@ class AppCategoryActivity final : public Activity {
 
   ButtonNavigator buttonNavigator;
   int selectorIndex = 0;
+  bool backPressedHere = false;  // Guard against stale Back release from child activity
 };

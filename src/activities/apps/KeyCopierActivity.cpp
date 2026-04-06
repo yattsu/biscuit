@@ -143,53 +143,53 @@ void KeyCopierActivity::drawKey() const {
   // Each cut occupies equal width; shoulder = 1/3, valley = 1/3, shoulder = 1/3
   const int cutW = (numCuts > 0) ? (cutAreaW / numCuts) : cutAreaW;
 
-  // --- Draw bow (circle) using drawPixel with cosf/sinf ---
+  // --- Draw bow (circle) using thick outline (3px) ---
   constexpr int bowR = 35;
   constexpr int holeR = 6;
-  // Outer ring
-  for (int deg = 0; deg < 360; deg++) {
-    float rad = deg * 3.14159f / 180.0f;
-    int px = bowCX + (int)(cosf(rad) * bowR);
-    int py = bowCY + (int)(sinf(rad) * bowR);
-    renderer.drawPixel(px, py, true);
+  // Outer ring — 3px thick
+  for (int thickness = 0; thickness < 3; thickness++) {
+    for (int deg = 0; deg < 360; deg++) {
+      float rad = deg * 3.14159f / 180.0f;
+      int px = bowCX + (int)(cosf(rad) * (bowR - thickness));
+      int py = bowCY + (int)(sinf(rad) * (bowR - thickness));
+      renderer.drawPixel(px, py, true);
+    }
   }
-  // Inner hole (keyring hole)
-  for (int deg = 0; deg < 360; deg++) {
-    float rad = deg * 3.14159f / 180.0f;
-    int px = bowCX + (int)(cosf(rad) * holeR);
-    int py = bowCY + (int)(sinf(rad) * holeR);
-    renderer.drawPixel(px, py, true);
+  // Inner hole (keyring hole) — 2px thick
+  for (int thickness = 0; thickness < 2; thickness++) {
+    for (int deg = 0; deg < 360; deg++) {
+      float rad = deg * 3.14159f / 180.0f;
+      int px = bowCX + (int)(cosf(rad) * (holeR - thickness));
+      int py = bowCY + (int)(sinf(rad) * (holeR - thickness));
+      renderer.drawPixel(px, py, true);
+    }
   }
 
-  // --- Draw blade flat bottom edge ---
-  renderer.drawLine(bladeLeft, bladeTop + bladeH, bladeRight, bladeTop + bladeH, true);
+  // --- Draw blade flat bottom edge (3px thick via fillRect) ---
+  renderer.fillRect(bladeLeft, bladeTop + bladeH - 1, bladeRight - bladeLeft, 3, true);
 
-  // --- Draw blade left side (shoulder from bow to blade) ---
-  renderer.drawLine(bladeLeft, bladeTop, bladeLeft, bladeTop + bladeH, true);
+  // --- Draw blade left side (3px thick via fillRect) ---
+  renderer.fillRect(bladeLeft, bladeTop, 3, bladeH, true);
 
-  // --- Draw key tip (angled) ---
-  // Top of tip: from bladeRight at bladeTop to bladeRight+tipWidth at bladeTop+bladeH/2
-  renderer.drawLine(bladeRight, bladeTop, bladeRight + tipWidth, bladeTop + bladeH / 2, true);
-  // Bottom of tip: from bladeRight at bladeTop+bladeH to same point
-  renderer.drawLine(bladeRight, bladeTop + bladeH, bladeRight + tipWidth, bladeTop + bladeH / 2, true);
+  // --- Draw key tip (angled, 3px thick via offset copies) ---
+  for (int t = 0; t < 3; t++) {
+    renderer.drawLine(bladeRight, bladeTop + t, bladeRight + tipWidth, bladeTop + bladeH / 2, true);
+    renderer.drawLine(bladeRight, bladeTop + bladeH - t, bladeRight + tipWidth, bladeTop + bladeH / 2, true);
+  }
 
-  // --- Draw warding groove (horizontal dashed line ~3/4 down the blade) ---
+  // --- Draw warding grooves (solid, 2px thick) ---
+  // Primary groove at 3/4 blade height
   const int wardY = bladeTop + (bladeH * 3) / 4;
-  for (int x = bladeLeft + 4; x < bladeRight; x += 6) {
-    renderer.drawPixel(x, wardY, true);
-    renderer.drawPixel(x + 1, wardY, true);
-    renderer.drawPixel(x + 2, wardY, true);
-  }
+  renderer.fillRect(bladeLeft + 6, wardY, bladeRight - bladeLeft - 12, 2, true);
+  // Secondary groove at 1/3 blade height
+  const int wardY2 = bladeTop + bladeH / 3;
+  renderer.fillRect(bladeLeft + 6, wardY2, bladeRight - bladeLeft - 12, 1, true);
 
-  // --- Draw cut profile on top edge ---
-  // Start at bladeTop (flat region before first cut)
-  // For each cut: flat shoulder → slope down → valley → slope up → flat shoulder
-  // We draw by building the top profile and connecting points
-
+  // --- Draw cut profile on top edge (2px thick) ---
   // First: draw the flat region from bladeLeft to start of cut area (top)
-  renderer.drawLine(bladeLeft, bladeTop, cutAreaLeft, bladeTop, true);
+  renderer.fillRect(bladeLeft, bladeTop, cutAreaLeft - bladeLeft, 2, true);
   // Last: draw flat region from end of cut area to bladeRight (top)
-  renderer.drawLine(cutAreaRight, bladeTop, bladeRight, bladeTop, true);
+  renderer.fillRect(cutAreaRight, bladeTop, bladeRight - cutAreaRight, 2, true);
 
   for (int i = 0; i < numCuts; i++) {
     int depth = cuts[i] - minDepth;  // normalize to 0-based
@@ -219,11 +219,21 @@ void KeyCopierActivity::drawKey() const {
     // Clamp slopeEnd to cx1 to avoid overdraw
     if (slopeEnd > cx1) slopeEnd = cx1;
 
+    // Draw each segment with a +1 y-offset duplicate for 2px thickness
     renderer.drawLine(cx0, bladeTop, slopeStart, bladeTop, true);
+    renderer.drawLine(cx0, bladeTop + 1, slopeStart, bladeTop + 1, true);
+
     renderer.drawLine(slopeStart, bladeTop, valleyLeft, bladeTop + depthPx, true);
+    renderer.drawLine(slopeStart, bladeTop + 1, valleyLeft, bladeTop + depthPx + 1, true);
+
     renderer.drawLine(valleyLeft, bladeTop + depthPx, valleyRight, bladeTop + depthPx, true);
+    renderer.drawLine(valleyLeft, bladeTop + depthPx + 1, valleyRight, bladeTop + depthPx + 1, true);
+
     renderer.drawLine(valleyRight, bladeTop + depthPx, slopeEnd, bladeTop, true);
+    renderer.drawLine(valleyRight, bladeTop + depthPx + 1, slopeEnd, bladeTop + 1, true);
+
     renderer.drawLine(slopeEnd, bladeTop, cx1, bladeTop, true);
+    renderer.drawLine(slopeEnd, bladeTop + 1, cx1, bladeTop + 1, true);
 
     // --- Depth label above each cut ---
     char label[4];
@@ -240,6 +250,12 @@ void KeyCopierActivity::drawKey() const {
     } else {
       renderer.drawText(SMALL_FONT_ID, labelX, labelY, label, true);
     }
+  }
+
+  // --- Dashed guide line for physical key alignment ---
+  const int guideLineY = bladeTop + bladeH + 6;
+  for (int gx = bladeLeft; gx < bladeRight; gx += 8) {
+    renderer.drawLine(gx, guideLineY, gx + 4, guideLineY, true);
   }
 
   // --- Guide text below blade ---

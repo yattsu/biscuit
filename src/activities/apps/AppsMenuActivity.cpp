@@ -354,7 +354,7 @@ void AppsMenuActivity::render(RenderLock&&) {
   constexpr int buttonHintsH = 40;
   constexpr int sidePad = 14;
   constexpr int tileGap = 6;
-  constexpr int gridTop = statusBarH + 22;  // Below status info row (clearance for status text)
+  constexpr int gridTop = statusBarH + 32;  // Below status info row (clearance for status text)
   const int gridBottom = pageHeight - buttonHintsH - 2;
   const int gridHeight = gridBottom - gridTop;
 
