@@ -66,7 +66,7 @@ void TrackerDetectorActivity::runScan() {
   scan->setInterval(100);
   scan->setWindow(99);
   scan->clearResults();
-  scan->start(0, true);  // non-blocking
+  scan->start(0, nullptr, true);  // non-blocking
   lastScanTime = millis();
 }
 

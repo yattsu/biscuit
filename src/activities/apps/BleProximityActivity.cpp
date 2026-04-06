@@ -60,7 +60,7 @@ void BleProximityActivity::startBleScan() {
   scan->setInterval(100);
   scan->setWindow(99);
   scan->clearResults();
-  scan->start(0, true);  // non-blocking
+  scan->start(0, nullptr, true);  // non-blocking
 }
 
 void BleProximityActivity::pruneStale() {
@@ -115,7 +115,7 @@ void BleProximityActivity::loop() {
           if (dev.haveName() && it->name == "Unknown") {
             it->name = dev.getName().c_str();
           }
-        } else {
+        } else if (static_cast<int>(devices.size()) < MAX_DEVICES) {
           BleTarget newDev;
           newDev.name = dev.haveName() ? dev.getName().c_str() : "Unknown";
           newDev.mac = mac;
@@ -144,7 +144,7 @@ void BleProximityActivity::loop() {
 
       // Restart scan (non-blocking)
       lastScanTime = millis();
-      scan->start(0, true);
+      scan->start(0, nullptr, true);
     }
   }
 

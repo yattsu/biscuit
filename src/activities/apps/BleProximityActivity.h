@@ -34,6 +34,7 @@ class BleProximityActivity final : public Activity {
   bool needsInit = false;
   unsigned long lastScanTime = 0;
   static constexpr unsigned long STALE_TIMEOUT_MS = 15000;
+  static constexpr int MAX_DEVICES = 50;
 
   void startBleScan();
   void processScanResults();

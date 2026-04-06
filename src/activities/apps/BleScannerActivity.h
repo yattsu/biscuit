@@ -38,6 +38,7 @@ class BleScannerActivity final : public Activity {
   bool scanInitialized = false;
   unsigned long lastScanTime = 0;
   static constexpr unsigned long SCAN_INTERVAL_MS = 5000;
+  static constexpr int MAX_DEVICES = 50;
 
   // BLE Explorer (service/characteristic browsing)
   BLEClient* pClient = nullptr;

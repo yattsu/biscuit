@@ -69,7 +69,7 @@ void BleScannerActivity::startBleScan() {
   scan->setInterval(100);
   scan->setWindow(99);
   scan->clearResults();
-  scan->start(0, true);  // non-blocking: scan once, return immediately
+  scan->start(0, nullptr, true);  // non-blocking: scan once, return immediately
 }
 
 void BleScannerActivity::stopBleScan() {
@@ -103,7 +103,7 @@ void BleScannerActivity::connectToDevice(int index) {
   stopBleScan();
 
   pClient = BLEDevice::createClient();
-  connected = pClient->connect(devices[index].address);
+  connected = pClient->connect(devices[index].address, 0xFF, 5000);  // 5 second timeout instead of default 30
 
   if (connected) {
     enumerateServices();
@@ -182,7 +182,39 @@ void BleScannerActivity::enumerateCharacteristics(int serviceIndex) {
         if (info.canWrite)  info.properties |= 0x08;
         if (info.canNotify) info.properties |= 0x10;
         if (info.canRead) {
-          String val = cpair.second->readValue();
+          info.value = "(press OK to read)";  // deferred: avoids blocking loop on enumerate
+        } else {
+          info.value = "(not readable)";
+        }
+        characteristics.push_back(std::move(info));
+        ci++;
+      }
+      return;
+    }
+    si++;
+  }
+}
+
+void BleScannerActivity::readCharacteristic(int charIndex) {
+  if (!pClient || !connected || selectedService < 0) return;
+  if (charIndex < 0 || charIndex >= static_cast<int>(characteristics.size())) return;
+
+  auto* svcMap = pClient->getServices();
+  if (!svcMap) return;
+
+  // Walk to the selected service
+  int si = 0;
+  for (auto& spair : *svcMap) {
+    if (si == selectedService) {
+      auto* charMap = spair.second->getCharacteristics();
+      if (!charMap) return;
+      // Walk to the selected characteristic by index
+      int ci = 0;
+      for (auto& cpair : *charMap) {
+        if (ci == charIndex) {
+          if (!cpair.second->canRead()) return;
+          String val = cpair.second->readValue();  // blocking read for this one char only
+          CharInfo& info = characteristics[charIndex];
           if (val.length() > 0) {
             std::string hex = bytesToHex(
                 reinterpret_cast<const uint8_t*>(val.c_str()),
@@ -199,21 +231,14 @@ void BleScannerActivity::enumerateCharacteristics(int serviceIndex) {
           } else {
             info.value = "(empty)";
           }
-        } else {
-          info.value = "(not readable)";
+          return;
         }
-        characteristics.push_back(std::move(info));
         ci++;
       }
       return;
     }
     si++;
   }
-}
-
-void BleScannerActivity::readCharacteristic(int charIndex) {
-  // Re-enumerate the selected service; this re-reads all chars including charIndex.
-  enumerateCharacteristics(selectedService);
 }
 
 // ---- static helpers ----
@@ -413,7 +438,7 @@ void BleScannerActivity::loop() {
           if (dev.haveName() && it->name == "Unknown") {
             it->name = dev.getName().c_str();
           }
-        } else {
+        } else if (static_cast<int>(devices.size()) < MAX_DEVICES) {
           BleDevice newDev;
           newDev.name = dev.haveName() ? dev.getName().c_str() : "Unknown";
           newDev.mac = mac;
@@ -432,7 +457,7 @@ void BleScannerActivity::loop() {
 
       // Restart scan (non-blocking)
       lastScanTime = millis();
-      scan->start(0, true);
+      scan->start(0, nullptr, true);
     }
   }
 
