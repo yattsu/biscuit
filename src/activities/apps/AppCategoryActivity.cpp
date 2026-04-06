@@ -19,6 +19,8 @@ void AppCategoryActivity::onEnter() {
   while (selectorIndex < count && entries[selectorIndex].isSectionHeader) {
     selectorIndex++;
   }
+  // REV-002: clamp in case every entry is a section header
+  if (selectorIndex >= count) selectorIndex = 0;
 
   // Show disclaimer for offensive category (one-time)
   if (requiresDisclaimer && !RADIO.isDisclaimerAcknowledged()) {
@@ -50,6 +52,8 @@ void AppCategoryActivity::loop() {
     while (safety-- > 0 && next < count && entries[next].isSectionHeader) {
       next = ButtonNavigator::nextIndex(next, count);
     }
+    // REV-002: fallback if still on a header (e.g. all entries are headers)
+    if (next < count && entries[next].isSectionHeader) return;
     selectorIndex = next;
     requestUpdate();
   });
@@ -57,9 +61,12 @@ void AppCategoryActivity::loop() {
   buttonNavigator.onPrevious([this, count] {
     int prev = ButtonNavigator::previousIndex(selectorIndex, count);
     int safety = count;
-    while (safety-- > 0 && prev >= 0 && entries[prev].isSectionHeader) {
+    // REV-003: removed dead `prev >= 0` guard — previousIndex() uses modular arithmetic
+    while (safety-- > 0 && entries[prev].isSectionHeader) {
       prev = ButtonNavigator::previousIndex(prev, count);
     }
+    // REV-002: fallback if still on a header (e.g. all entries are headers)
+    if (entries[prev].isSectionHeader) return;
     selectorIndex = prev;
     requestUpdate();
   });
@@ -89,13 +96,17 @@ void AppCategoryActivity::loop() {
   }
 
   // Back button: short press = back one level, long press (1500ms+) = dashboard
+  // REV-001: capture held time before wasReleased() so it is unambiguously tied
+  // to the Back button release (getHeldTime() is not button-specific — if another
+  // button were still physically held it would return that button's live time instead).
+  const unsigned long heldTime = mappedInput.getHeldTime();
   if (mappedInput.wasReleased(MappedInputManager::Button::Back)) {
     if (!backPressedHere) {
       // Stale release from child activity — ignore it
       return;
     }
     backPressedHere = false;
-    if (mappedInput.getHeldTime() >= 1500) {
+    if (heldTime >= 1500) {
       onGoHome();  // Long-press: go straight to dashboard
     } else {
       finish();    // Short press: go back one level

@@ -8,7 +8,6 @@ class KeyCopierActivity final : public Activity {
       : Activity("KeyCopier", renderer, mappedInput) {}
 
   void onEnter() override;
-  void onExit() override;
   void loop() override;
   void render(RenderLock&&) override;
 

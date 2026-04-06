@@ -2,7 +2,6 @@
 
 #include <HalStorage.h>
 #include <I18n.h>
-#include <cmath>
 #include <cstring>
 
 #include "components/UITheme.h"
@@ -34,8 +33,6 @@ void KeyCopierActivity::onEnter() {
   loadKey();
   requestUpdate();
 }
-
-void KeyCopierActivity::onExit() { Activity::onExit(); }
 
 // ---- loop -------------------------------------------------------------------
 
@@ -143,27 +140,39 @@ void KeyCopierActivity::drawKey() const {
   // Each cut occupies equal width; shoulder = 1/3, valley = 1/3, shoulder = 1/3
   const int cutW = (numCuts > 0) ? (cutAreaW / numCuts) : cutAreaW;
 
-  // --- Draw bow (circle) using thick outline (3px) ---
+  // --- Draw bow (circle) using Bresenham midpoint algorithm (integer only) ---
   constexpr int bowR = 35;
   constexpr int holeR = 6;
+
+  // Draws a single circle at (cx,cy) radius r — integer arithmetic, no trig
+  auto drawCircle = [&](int cx, int cy, int r) {
+    int x = r, y = 0, err = 1 - r;
+    while (x >= y) {
+      renderer.drawPixel(cx + x, cy + y, true);
+      renderer.drawPixel(cx - x, cy + y, true);
+      renderer.drawPixel(cx + x, cy - y, true);
+      renderer.drawPixel(cx - x, cy - y, true);
+      renderer.drawPixel(cx + y, cy + x, true);
+      renderer.drawPixel(cx - y, cy + x, true);
+      renderer.drawPixel(cx + y, cy - x, true);
+      renderer.drawPixel(cx - y, cy - x, true);
+      y++;
+      if (err < 0) {
+        err += 2 * y + 1;
+      } else {
+        x--;
+        err += 2 * (y - x) + 1;
+      }
+    }
+  };
+
   // Outer ring — 3px thick
-  for (int thickness = 0; thickness < 3; thickness++) {
-    for (int deg = 0; deg < 360; deg++) {
-      float rad = deg * 3.14159f / 180.0f;
-      int px = bowCX + (int)(cosf(rad) * (bowR - thickness));
-      int py = bowCY + (int)(sinf(rad) * (bowR - thickness));
-      renderer.drawPixel(px, py, true);
-    }
-  }
+  drawCircle(bowCX, bowCY, bowR);
+  drawCircle(bowCX, bowCY, bowR - 1);
+  drawCircle(bowCX, bowCY, bowR - 2);
   // Inner hole (keyring hole) — 2px thick
-  for (int thickness = 0; thickness < 2; thickness++) {
-    for (int deg = 0; deg < 360; deg++) {
-      float rad = deg * 3.14159f / 180.0f;
-      int px = bowCX + (int)(cosf(rad) * (holeR - thickness));
-      int py = bowCY + (int)(sinf(rad) * (holeR - thickness));
-      renderer.drawPixel(px, py, true);
-    }
-  }
+  drawCircle(bowCX, bowCY, holeR);
+  drawCircle(bowCX, bowCY, holeR - 1);
 
   // --- Draw blade flat bottom edge (3px thick via fillRect) ---
   renderer.fillRect(bladeLeft, bladeTop + bladeH - 1, bladeRight - bladeLeft, 3, true);
