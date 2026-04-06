@@ -117,6 +117,13 @@ void HomeActivity::onEnter() {
   Storage.mkdir("/biscuit/pcap");
   Storage.mkdir("/biscuit/scans");
   Storage.mkdir("/biscuit/logs");
+  Storage.mkdir("/biscuit/loot");
+  Storage.mkdir("/biscuit/loot/handshakes");
+  Storage.mkdir("/biscuit/loot/pmkid");
+  Storage.mkdir("/biscuit/loot/ble");
+  Storage.mkdir("/biscuit/loot/hashcat");
+  Storage.mkdir("/biscuit/portals");
+  Storage.mkdir("/biscuit/targets");
 
   // Check if OPDS browser URL is configured
   hasOpdsUrl = strlen(SETTINGS.opdsServerUrl) > 0;

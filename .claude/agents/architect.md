@@ -45,26 +45,31 @@ WHEN PLANNING:
 6. Flag if feature pushes flash beyond 95%
 7. Identify shared components that could be reused (ButtonNavigator, KeyboardEntryActivity, etc.)
 
-MENU STRUCTURE (current):
+MENU STRUCTURE (current — module architecture):
 ```
-Apps Menu (AppsMenuActivity, 8 categories, 2×4 grid):
-├── Wireless (28): WifiScanner, Wardriving, ProbeSniffer, PacketMonitor, WifiConnect, HostScanner, Ping, DnsLookup, HttpClient, MdnsBrowser, NetworkChange, ApCloner, BleScanner, BleProximity, CrowdDensity, DeviceFingerprint, VendorOui, ApHistory, PerimeterWatch, CredentialViewer, BleSpam, UsbHid, +6 manual wireless, +section headers
-├── Security (9): TrackerDetector, Sweep, NetworkMonitor, Emergency, QuickWipe, SecurityPin, RfSilence, ScreenDecoy, MacChanger
-├── Tools (18): Totp, MedicalCard, PasswordManager, Clock, Countdown, Calculator, QrGenerator, Barcode, KeyCopier, WifiCreds, MorseCode, UnitConverter, Cipher, OtpGenerator, SdFileBrowser, Flashcard, HabitTracker, EtchASketch, +section headers
+Apps Menu (AppsMenuActivity, 2×4 grid):
+├── SCAN (module): ScanActivity — passive WiFi+BLE intel, channel hop, target discovery
+├── HUNT (module): HuntActivity — target profiling, capability analysis
+├── FIRE (temp category): All wireless/recon/security/comms apps (~45) pending FireActivity
+├── LOOT (module): LootActivity — handshakes, credentials, PCAPs, BLE dumps
+├── GHOST (module): GhostActivity — MAC rotation, TX power, probe suppress, dead man switch
 ├── Games (11): Casino, Minesweeper, Sudoku, Chess, Snake, Tetris, Maze, DiceRoller, GameOfLife, Voronoi, MatrixRain
-├── Comms (5): MeshChat, SsidChannel, BleContactExchange, DeadDrop, BulletinBoard
-├── Urban (4): BreadcrumbTrail, VehicleFinder, TransitAlert, EventLogger
-├── System (9): Settings, FileTransfer, TaskManager, Battery, DeviceInfo, Background, Automation, ReadingStats, UsbMassStorage
+├── Tools (33): All non-wireless utilities + system apps with section headers
 └── Reader (4): OpenBook, RecentBooks, BrowseFiles, OpdsBrowser
+
+Shared: TargetDB (src/util/), PacketRingBuffer (src/util/), FrameParser (src/util/)
+Flow: SCAN → HUNT → FIRE → LOOT (GHOST independent)
 ```
 
 SD CARD STRUCTURE:
 ```
 /biscuit/
-├── beacons.txt, creds.csv, medical.dat, totp.dat, casino.dat
-├── habits.dat, security.dat, automation.dat, oui.txt
+├── targets.dat, ghost.dat, creds.csv, beacons.txt
+├── medical.dat, totp.dat, casino.dat, habits.dat
+├── security.dat, automation.dat, oui.txt
+├── loot/handshakes/, loot/pmkid/, loot/ble/, loot/hashcat/
 ├── portals/, ducky/, pcap/, scans/, drawings/, logs/
-├── trails/, snapshots/, flashcards/, keys/
+├── trails/, snapshots/, flashcards/, keys/, targets/
 └── lastused_0.txt ... lastused_7.txt
 ```
 
