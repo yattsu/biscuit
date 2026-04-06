@@ -159,7 +159,7 @@ void SweepActivity::scanBleThreats() {
 
   BLEScan* scan = BLEDevice::getScan();
   scan->setActiveScan(true);
-  scan->start(5);  // 5-second blocking scan
+  scan->start(1);  // 1-second blocking scan (shorter to reduce UI freeze)
 
   BLEScanResults* results = scan->getResults();
   if (results) {

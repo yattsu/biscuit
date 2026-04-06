@@ -108,9 +108,14 @@ void DeviceFingerprinterActivity::onProbePacket(const uint8_t* payload, uint16_t
 
 void DeviceFingerprinterActivity::onEnter() {
   Activity::onEnter();
-
+  state = READY;
   devices.clear();
   deviceIndex = 0;
+  promiscuousActive = false;
+  requestUpdate();
+}
+
+void DeviceFingerprinterActivity::startCapture() {
   lastDisplay = millis();
 
   RADIO.ensureWifi();
@@ -126,6 +131,7 @@ void DeviceFingerprinterActivity::onEnter() {
   esp_wifi_set_promiscuous_filter(&filter);
 
   promiscuousActive = true;
+  state = CAPTURING;
   requestUpdate();
 }
 
@@ -144,6 +150,16 @@ void DeviceFingerprinterActivity::onExit() {
 // ---------------------------------------------------------------------------
 
 void DeviceFingerprinterActivity::loop() {
+  if (state == READY) {
+    if (mappedInput.wasReleased(MappedInputManager::Button::Confirm)) {
+      startCapture();
+    }
+    if (mappedInput.wasReleased(MappedInputManager::Button::Back)) {
+      finish();
+    }
+    return;
+  }
+
   const unsigned long now = millis();
 
   if (now - lastDisplay >= DISPLAY_INTERVAL_MS) {
@@ -180,6 +196,20 @@ void DeviceFingerprinterActivity::render(RenderLock&&) {
   const auto& metrics = UITheme::getInstance().getMetrics();
   const auto pageWidth = renderer.getScreenWidth();
   const auto pageHeight = renderer.getScreenHeight();
+
+  if (state == READY) {
+    GUI.drawHeader(renderer, Rect{0, metrics.topPadding, pageWidth, metrics.headerHeight},
+                   "Device Fingerprinter");
+    const int contentTop = metrics.topPadding + metrics.headerHeight + metrics.verticalSpacing;
+    const int centerY = contentTop + (pageHeight - contentTop - metrics.buttonHintsHeight) / 2;
+    renderer.drawCenteredText(UI_10_FONT_ID, centerY - 30, "Identify nearby device types");
+    renderer.drawCenteredText(UI_10_FONT_ID, centerY, "by analyzing WiFi probe requests.");
+    renderer.drawCenteredText(SMALL_FONT_ID, centerY + 40, "Press Confirm to start capture.");
+    const auto labels = mappedInput.mapLabels("Back", "Start", "", "");
+    GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
+    renderer.displayBuffer();
+    return;
+  }
 
   const int devCount = static_cast<int>(devices.size());
 

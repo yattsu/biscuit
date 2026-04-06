@@ -29,8 +29,18 @@ class AppsMenuActivity final : public Activity {
   bool wifiConnected = false;
   unsigned long lastInfoRefresh = 0;
   static constexpr unsigned long INFO_REFRESH_MS = 5000;
+  char uptimeStr[16] = "";
+
+  // Badge counts (refreshed with system info)
+  int badgeRecon = 0;       // tracker alerts count
+  int badgeSecurity = -1;   // 0 = ok, -1 = PIN not set (show "!")
+  int badgeSystem = 0;      // firmware update available
 
   void refreshSystemInfo();
+
+  // Last-used activity per category (read from SD on enter)
+  char lastUsedName[ITEM_COUNT][32] = {};
+  void loadLastUsed();
 
   // Tile rendering
   void drawTile(int index, int x, int y, int w, int h, bool selected) const;

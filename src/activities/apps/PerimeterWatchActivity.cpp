@@ -15,14 +15,12 @@ void PerimeterWatchActivity::macToStr(const uint8_t* mac, char* buf, size_t bufL
 
 void PerimeterWatchActivity::onEnter() {
   Activity::onEnter();
-  RADIO.ensureWifi();
   state = SETUP;
   baseline.clear();
   intrusions.clear();
   reportIndex = 0;
   watchStartMs = 0;
   lastScanMs = 0;
-  doBaselineScan();
   requestUpdate();
 }
 
@@ -101,6 +99,8 @@ void PerimeterWatchActivity::loop() {
   if (state == SETUP) {
     if (mappedInput.wasReleased(MappedInputManager::Button::Back)) { finish(); return; }
     if (mappedInput.wasReleased(MappedInputManager::Button::Confirm)) {
+      RADIO.ensureWifi();
+      doBaselineScan();
       state = WATCHING;
       watchStartMs = millis();
       lastScanMs = millis();

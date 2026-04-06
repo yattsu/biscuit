@@ -15,12 +15,16 @@ class DeviceFingerprinterActivity final : public Activity {
   void onExit() override;
   void loop() override;
   void render(RenderLock&&) override;
-  bool preventAutoSleep() override { return true; }
+  bool preventAutoSleep() override { return promiscuousActive; }
 
   // Called from promiscuous callback — must be public
   void onProbePacket(const uint8_t* payload, uint16_t len, int rssi);
 
  private:
+  enum State { READY, CAPTURING };
+  State state = READY;
+
+  void startCapture();
   struct FingerprintedDevice {
     uint8_t mac[6];
     char estimatedOs[16];

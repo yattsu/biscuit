@@ -109,7 +109,7 @@ void BleContactExchangeActivity::startExchange() {
   scan->setActiveScan(false);
   scan->setInterval(100);
   scan->setWindow(99);
-  scan->start(0, false);  // continuous scan
+  scan->start(0, true);  // non-blocking continuous scan
 
   exchangeStart = millis();
   lastScanMs = millis();

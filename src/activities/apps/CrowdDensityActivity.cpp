@@ -49,13 +49,18 @@ void CrowdDensityActivity::addMac(const uint8_t* mac) {
 
 void CrowdDensityActivity::onEnter() {
   Activity::onEnter();
-
+  state = READY;
   memset(history, 0, sizeof(history));
   historyHead = 0;
   historyCount = 0;
   currentCount = 0;
   memset(seenMacs, 0, sizeof(seenMacs));
   seenMacCount = 0;
+  promiscuousActive = false;
+  requestUpdate();
+}
+
+void CrowdDensityActivity::startCapture() {
   lastSample = millis();
   lastDisplay = millis();
   windowStart = millis();
@@ -73,6 +78,7 @@ void CrowdDensityActivity::onEnter() {
   esp_wifi_set_promiscuous_filter(&filter);
 
   promiscuousActive = true;
+  state = CAPTURING;
   requestUpdate();
 }
 
@@ -91,6 +97,16 @@ void CrowdDensityActivity::onExit() {
 // ---------------------------------------------------------------------------
 
 void CrowdDensityActivity::loop() {
+  if (state == READY) {
+    if (mappedInput.wasReleased(MappedInputManager::Button::Confirm)) {
+      startCapture();
+    }
+    if (mappedInput.wasReleased(MappedInputManager::Button::Back)) {
+      finish();
+    }
+    return;
+  }
+
   const unsigned long now = millis();
 
   // Sample into history ring buffer every SAMPLE_INTERVAL_MS
@@ -129,7 +145,21 @@ void CrowdDensityActivity::render(RenderLock&&) {
   const auto pageWidth = renderer.getScreenWidth();
   const auto pageHeight = renderer.getScreenHeight();
 
-  // Header
+  if (state == READY) {
+    GUI.drawHeader(renderer, Rect{0, metrics.topPadding, pageWidth, metrics.headerHeight},
+                   "Crowd Density");
+    const int contentTop = metrics.topPadding + metrics.headerHeight + metrics.verticalSpacing;
+    const int centerY = contentTop + (pageHeight - contentTop - metrics.buttonHintsHeight) / 2;
+    renderer.drawCenteredText(UI_10_FONT_ID, centerY - 30, "Estimate nearby people via");
+    renderer.drawCenteredText(UI_10_FONT_ID, centerY, "WiFi probe request counting.");
+    renderer.drawCenteredText(SMALL_FONT_ID, centerY + 40, "Press Confirm to start capture.");
+    const auto labels = mappedInput.mapLabels("Back", "Start", "", "");
+    GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
+    renderer.displayBuffer();
+    return;
+  }
+
+  // Header (CAPTURING state)
   char subtitle[24];
   snprintf(subtitle, sizeof(subtitle), "%d seen (30s window)", seenMacCount);
   GUI.drawHeader(renderer, Rect{0, metrics.topPadding, pageWidth, metrics.headerHeight},

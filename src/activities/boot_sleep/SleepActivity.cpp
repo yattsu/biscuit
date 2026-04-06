@@ -3,10 +3,13 @@
 #include <Epub.h>
 #include <FsHelpers.h>
 #include <GfxRenderer.h>
+#include <HalPowerManager.h>
 #include <HalStorage.h>
 #include <I18n.h>
 #include <Txt.h>
 #include <Xtc.h>
+#include <esp_system.h>
+#include <esp_timer.h>
 
 #include "CrossPointSettings.h"
 #include "CrossPointState.h"
@@ -26,6 +29,8 @@ void SleepActivity::onEnter() {
     case (CrossPointSettings::SLEEP_SCREEN_MODE::COVER):
     case (CrossPointSettings::SLEEP_SCREEN_MODE::COVER_CUSTOM):
       return renderCoverSleepScreen();
+    case (CrossPointSettings::SLEEP_SCREEN_MODE::STATUS):
+      return renderStatusSleepScreen();
     default:
       return renderDefaultSleepScreen();
   }
@@ -292,5 +297,60 @@ void SleepActivity::renderCoverSleepScreen() const {
 
 void SleepActivity::renderBlankSleepScreen() const {
   renderer.clearScreen();
+  renderer.displayBuffer(HalDisplay::HALF_REFRESH);
+}
+
+void SleepActivity::renderStatusSleepScreen() const {
+  const auto pageWidth = renderer.getScreenWidth();
+  const auto pageHeight = renderer.getScreenHeight();
+
+  renderer.clearScreen();
+
+  // === Time display (uptime as HH:MM) ===
+  unsigned long uptime = esp_timer_get_time() / 1000000;
+  unsigned long hours = (uptime / 3600) % 100;
+  unsigned long minutes = (uptime / 60) % 60;
+  char timeStr[8];
+  snprintf(timeStr, sizeof(timeStr), "%02lu:%02lu", hours, minutes);
+  renderer.drawCenteredText(UI_12_FONT_ID, pageHeight / 2 - 120, timeStr, true, EpdFontFamily::BOLD);
+
+  // === Battery bar ===
+  uint16_t battPct = powerManager.getBatteryPercentage();
+  constexpr int barW = 200;
+  constexpr int barH = 8;
+  int barX = (pageWidth - barW) / 2;
+  int barY = pageHeight / 2 - 60;
+  renderer.drawRect(barX, barY, barW, barH, true);
+  int fillW = (barW - 4) * battPct / 100;
+  if (fillW > 0) {
+    renderer.fillRect(barX + 2, barY + 2, fillW, barH - 4, true);
+  }
+
+  char battStr[8];
+  snprintf(battStr, sizeof(battStr), "%d%%", battPct);
+  renderer.drawCenteredText(SMALL_FONT_ID, barY + 16, battStr);
+
+  // === System info lines ===
+  int infoY = pageHeight / 2;
+  renderer.drawLine(60, infoY - 10, pageWidth - 60, infoY - 10, true);
+
+  char line1[48], line2[48], line3[48];
+  snprintf(line1, sizeof(line1), "WiFi: off  |  BLE: off");
+  snprintf(line2, sizeof(line2), "Uptime: %luh %lum  |  Heap: %luK",
+           uptime / 3600, (uptime % 3600) / 60, (unsigned long)(esp_get_free_heap_size() / 1024));
+  snprintf(line3, sizeof(line3), "SD: available");
+
+  renderer.drawCenteredText(SMALL_FONT_ID, infoY + 5, line1);
+  renderer.drawCenteredText(SMALL_FONT_ID, infoY + 25, line2);
+  renderer.drawCenteredText(SMALL_FONT_ID, infoY + 45, line3);
+
+  renderer.drawLine(60, infoY + 65, pageWidth - 60, infoY + 65, true);
+
+  // === Logo at bottom ===
+  renderer.drawImage(Logo120, (pageWidth - 120) / 2, pageHeight / 2 + 100, 120, 120);
+  renderer.drawCenteredText(UI_10_FONT_ID, pageHeight / 2 + 230, tr(STR_CROSSPOINT), true, EpdFontFamily::BOLD);
+
+  // Dark mode (invert screen)
+  renderer.invertScreen();
   renderer.displayBuffer(HalDisplay::HALF_REFRESH);
 }

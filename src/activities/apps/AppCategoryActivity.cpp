@@ -1,6 +1,8 @@
 #include "AppCategoryActivity.h"
 
 #include <I18n.h>
+#include <HalStorage.h>
+#include <cstring>
 
 #include "MappedInputManager.h"
 #include "components/UITheme.h"
@@ -10,6 +12,12 @@
 void AppCategoryActivity::onEnter() {
   Activity::onEnter();
   selectorIndex = 0;
+
+  // Skip initial section header if present
+  const int count = static_cast<int>(entries.size());
+  while (selectorIndex < count && entries[selectorIndex].isSectionHeader) {
+    selectorIndex++;
+  }
 
   // Show disclaimer for offensive category (one-time)
   if (requiresDisclaimer && !RADIO.isDisclaimerAcknowledged()) {
@@ -35,17 +43,37 @@ void AppCategoryActivity::loop() {
   const int count = static_cast<int>(entries.size());
 
   buttonNavigator.onNext([this, count] {
-    selectorIndex = ButtonNavigator::nextIndex(selectorIndex, count);
+    int next = ButtonNavigator::nextIndex(selectorIndex, count);
+    int safety = count;
+    while (safety-- > 0 && next < count && entries[next].isSectionHeader) {
+      next = ButtonNavigator::nextIndex(next, count);
+    }
+    selectorIndex = next;
     requestUpdate();
   });
 
   buttonNavigator.onPrevious([this, count] {
-    selectorIndex = ButtonNavigator::previousIndex(selectorIndex, count);
+    int prev = ButtonNavigator::previousIndex(selectorIndex, count);
+    int safety = count;
+    while (safety-- > 0 && prev >= 0 && entries[prev].isSectionHeader) {
+      prev = ButtonNavigator::previousIndex(prev, count);
+    }
+    selectorIndex = prev;
     requestUpdate();
   });
 
   if (mappedInput.wasReleased(MappedInputManager::Button::Confirm)) {
-    if (selectorIndex < count) {
+    if (selectorIndex < count && !entries[selectorIndex].isSectionHeader) {
+      // Save last-used activity name
+      if (categoryIndex >= 0) {
+        char path[40];
+        snprintf(path, sizeof(path), "/biscuit/lastused_%d.txt", categoryIndex);
+        FsFile file;
+        if (Storage.openFileForWrite("APPS", path, file)) {
+          file.write((const uint8_t*)entries[selectorIndex].nameStrId, strlen(entries[selectorIndex].nameStrId));
+          file.close();
+        }
+      }
       auto app = entries[selectorIndex].factory(renderer, mappedInput);
       if (app) {
         activityManager.pushActivity(std::move(app));
@@ -53,8 +81,14 @@ void AppCategoryActivity::loop() {
     }
   }
 
-  if (mappedInput.wasPressed(MappedInputManager::Button::Back)) {
-    finish();
+  // Back button: short press = back one level, long press (1500ms+) = dashboard
+  if (mappedInput.wasReleased(MappedInputManager::Button::Back)) {
+    if (mappedInput.getHeldTime() >= 1500) {
+      onGoHome();  // Long-press: go straight to dashboard
+    } else {
+      finish();    // Short press: go back one level
+    }
+    return;
   }
 }
 
@@ -65,14 +99,11 @@ void AppCategoryActivity::render(RenderLock&&) {
 
   renderer.clearScreen();
 
-  // === Branded header (matches dashboard style) ===
-  constexpr int headerH = 40;
-  constexpr int pad = 14;
+  const int headerY = metrics.topPadding;
 
   if (disclaimerShown) {
     // Disclaimer screen
-    renderer.drawText(UI_12_FONT_ID, pad, 10, title, true, EpdFontFamily::BOLD);
-    renderer.drawLine(pad, headerH - 2, pageWidth - pad, headerH - 2, true);
+    GUI.drawHeader(renderer, Rect{0, headerY, pageWidth, metrics.headerHeight}, title);
 
     renderer.drawCenteredText(UI_10_FONT_ID, pageHeight / 2 - 40, tr(STR_DISCLAIMER));
     const auto labels = mappedInput.mapLabels(tr(STR_EXIT), tr(STR_CONFIRM), "", "");
@@ -81,30 +112,40 @@ void AppCategoryActivity::render(RenderLock&&) {
     return;
   }
 
-  // Category title on left (bold)
-  renderer.drawText(UI_12_FONT_ID, pad, 10, title, true, EpdFontFamily::BOLD);
-
-  // Item count on right
+  // Item count subtitle (exclude section headers)
   const int count = static_cast<int>(entries.size());
+  int appCount = 0;
+  for (const auto& e : entries) {
+    if (!e.isSectionHeader) appCount++;
+  }
   char countStr[16];
-  snprintf(countStr, sizeof(countStr), "%d items", count);
-  int countW = renderer.getTextWidth(SMALL_FONT_ID, countStr);
-  renderer.drawText(SMALL_FONT_ID, pageWidth - pad - countW, 14, countStr);
+  snprintf(countStr, sizeof(countStr), "%d items", appCount);
 
-  // Separator line
-  renderer.drawLine(pad, headerH - 2, pageWidth - pad, headerH - 2, true);
+  GUI.drawHeader(renderer, Rect{0, headerY, pageWidth, metrics.headerHeight}, title, countStr);
 
   // === App list ===
-  const int listTop = headerH + 4;
+  const int listTop = headerY + metrics.headerHeight + metrics.verticalSpacing;
   const int listHeight = pageHeight - listTop - metrics.buttonHintsHeight - metrics.verticalSpacing;
 
   GUI.drawList(
       renderer, Rect{0, listTop, pageWidth, listHeight}, count, selectorIndex,
-      [this](int index) -> std::string { return entries[index].nameStrId; },
       [this](int index) -> std::string {
+          if (entries[index].isSectionHeader) {
+            return std::string("\xE2\x94\x80\xE2\x94\x80 ") + entries[index].nameStrId + " \xE2\x94\x80\xE2\x94\x80";
+          }
+          return entries[index].nameStrId;
+      },
+      [this](int index) -> std::string {
+          if (entries[index].isSectionHeader) return "";
           return entries[index].description ? std::string(entries[index].description) : "";
       },
-      nullptr);
+      [this](int index) -> UIIcon { return entries[index].icon; },
+      [this](int index) -> std::string {
+          if (entries[index].hasActiveState && entries[index].hasActiveState()) {
+            return "\xE2\x97\x8F";  // ● (UTF-8 black circle)
+          }
+          return "";
+      });
 
   // === Button hints ===
   const auto labels = mappedInput.mapLabels(tr(STR_BACK), tr(STR_SELECT), tr(STR_DIR_UP), tr(STR_DIR_DOWN));

@@ -72,7 +72,8 @@ void BleScannerActivity::startBleScan() {
   scan->setActiveScan(true);
   scan->setInterval(100);
   scan->setWindow(99);
-  scan->start(3, false);  // 3 second scan, non-blocking=false but short
+  scan->clearResults();
+  scan->start(0, true);  // non-blocking: scan once, return immediately
 }
 
 void BleScannerActivity::stopBleScan() {
@@ -423,9 +424,9 @@ void BleScannerActivity::loop() {
       scan->clearResults();
       requestUpdate();
 
-      // Restart scan
+      // Restart scan (non-blocking)
       lastScanTime = millis();
-      scan->start(3, false);
+      scan->start(0, true);
     }
   }
 

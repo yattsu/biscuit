@@ -63,7 +63,8 @@ void BleProximityActivity::startBleScan() {
   scan->setActiveScan(true);
   scan->setInterval(100);
   scan->setWindow(99);
-  scan->start(3, false);
+  scan->clearResults();
+  scan->start(0, true);  // non-blocking
 }
 
 void BleProximityActivity::pruneStale() {
@@ -135,9 +136,9 @@ void BleProximityActivity::loop() {
       scan->clearResults();
       requestUpdate();
 
-      // Restart scan
+      // Restart scan (non-blocking)
       lastScanTime = millis();
-      scan->start(3, false);
+      scan->start(0, true);
     }
   }
 

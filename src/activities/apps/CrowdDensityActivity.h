@@ -13,12 +13,16 @@ class CrowdDensityActivity final : public Activity {
   void onExit() override;
   void loop() override;
   void render(RenderLock&&) override;
-  bool preventAutoSleep() override { return true; }
+  bool preventAutoSleep() override { return promiscuousActive; }
 
   // Called from promiscuous callback — must be public
   void addMac(const uint8_t* mac);
 
  private:
+  enum State { READY, CAPTURING };
+  State state = READY;
+
+  void startCapture();
   static constexpr int HISTORY_SIZE = 60;   // 30 minutes at 30 s intervals
   static constexpr int MAX_MACS = 256;
   static constexpr unsigned long SAMPLE_INTERVAL_MS = 30000UL;

@@ -66,7 +66,8 @@ void TrackerDetectorActivity::runScan() {
   scan->setActiveScan(true);
   scan->setInterval(100);
   scan->setWindow(99);
-  scan->start(SCAN_DURATION_S, false);
+  scan->clearResults();
+  scan->start(0, true);  // non-blocking
   lastScanTime = millis();
 }
 
@@ -188,10 +189,12 @@ void TrackerDetectorActivity::loop() {
       break;
 
     case MONITORING: {
-      // Periodic scanning
+      // Process any available scan results each loop iteration
+      processScanResults();
+
+      // Periodic: trigger new scan, check followers, prune stale
       if (millis() - lastScanTime >= SCAN_INTERVAL_MS || lastScanTime == 0) {
         runScan();
-        processScanResults();
         checkForFollowers();
         pruneStale();
         requestUpdate();
