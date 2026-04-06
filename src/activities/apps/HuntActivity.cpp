@@ -227,25 +227,25 @@ void HuntActivity::loop() {
     switch (state) {
 
         case SELECT_TARGET: {
-            if (mappedInput.wasPressed(MappedInputManager::Button::Back)) {
+            if (mappedInput.wasReleased(MappedInputManager::Button::Back)) {
                 finish();
                 return;
             }
-            if (mappedInput.wasPressed(MappedInputManager::Button::Down) ||
-                mappedInput.wasPressed(MappedInputManager::Button::Right)) {
+            if (mappedInput.wasReleased(MappedInputManager::Button::Down) ||
+                mappedInput.wasReleased(MappedInputManager::Button::Right)) {
                 if (targetCount > 0) {
                     listIndex = ButtonNavigator::nextIndex(listIndex, targetCount);
                     requestUpdate();
                 }
             }
-            if (mappedInput.wasPressed(MappedInputManager::Button::Up) ||
-                mappedInput.wasPressed(MappedInputManager::Button::Left)) {
+            if (mappedInput.wasReleased(MappedInputManager::Button::Up) ||
+                mappedInput.wasReleased(MappedInputManager::Button::Left)) {
                 if (targetCount > 0) {
                     listIndex = ButtonNavigator::previousIndex(listIndex, targetCount);
                     requestUpdate();
                 }
             }
-            if (mappedInput.wasPressed(MappedInputManager::Button::Confirm)) {
+            if (mappedInput.wasReleased(MappedInputManager::Button::Confirm)) {
                 if (targetCount > 0) {
                     selectTarget(listIndex);
                 }
@@ -254,7 +254,7 @@ void HuntActivity::loop() {
         }
 
         case PROFILE_VIEW: {
-            if (mappedInput.wasPressed(MappedInputManager::Button::Back)) {
+            if (mappedInput.wasReleased(MappedInputManager::Button::Back)) {
                 if (hasPreselected) {
                     finish();
                 } else {
@@ -263,24 +263,24 @@ void HuntActivity::loop() {
                 }
                 return;
             }
-            if (mappedInput.wasPressed(MappedInputManager::Button::Down)) {
+            if (mappedInput.wasReleased(MappedInputManager::Button::Down)) {
                 profileScroll++;
                 requestUpdate();
             }
-            if (mappedInput.wasPressed(MappedInputManager::Button::Up)) {
+            if (mappedInput.wasReleased(MappedInputManager::Button::Up)) {
                 if (profileScroll > 0) { profileScroll--; requestUpdate(); }
             }
-            if (mappedInput.wasPressed(MappedInputManager::Button::Confirm) ||
-                mappedInput.wasPressed(MappedInputManager::Button::Right)) {
+            if (mappedInput.wasReleased(MappedInputManager::Button::Confirm) ||
+                mappedInput.wasReleased(MappedInputManager::Button::Right)) {
                 state = CAPABILITIES;
                 capIndex = 0;
                 requestUpdate();
             }
-            if (mappedInput.wasPressed(MappedInputManager::Button::Left)) {
+            if (mappedInput.wasReleased(MappedInputManager::Button::Left)) {
                 state = MOVEMENT_LOG;
                 requestUpdate();
             }
-            if (mappedInput.wasPressed(MappedInputManager::Button::PageForward)) {
+            if (mappedInput.wasReleased(MappedInputManager::Button::PageForward)) {
                 if (current) {
                     char path[64];
                     char macBuf[18];
@@ -297,24 +297,24 @@ void HuntActivity::loop() {
         }
 
         case CAPABILITIES: {
-            if (mappedInput.wasPressed(MappedInputManager::Button::Back)) {
+            if (mappedInput.wasReleased(MappedInputManager::Button::Back)) {
                 state = PROFILE_VIEW;
                 requestUpdate();
                 return;
             }
-            if (mappedInput.wasPressed(MappedInputManager::Button::Down)) {
+            if (mappedInput.wasReleased(MappedInputManager::Button::Down)) {
                 if (capCount > 0) {
                     capIndex = ButtonNavigator::nextIndex(capIndex, capCount);
                     requestUpdate();
                 }
             }
-            if (mappedInput.wasPressed(MappedInputManager::Button::Up)) {
+            if (mappedInput.wasReleased(MappedInputManager::Button::Up)) {
                 if (capCount > 0) {
                     capIndex = ButtonNavigator::previousIndex(capIndex, capCount);
                     requestUpdate();
                 }
             }
-            if (mappedInput.wasPressed(MappedInputManager::Button::Confirm)) {
+            if (mappedInput.wasReleased(MappedInputManager::Button::Confirm)) {
                 if (current && capIndex < capCount && capabilities[capIndex].available) {
                     auto fire = std::make_unique<FireActivity>(renderer, mappedInput);
                     fire->setTarget(current->mac);
@@ -325,7 +325,7 @@ void HuntActivity::loop() {
         }
 
         case MOVEMENT_LOG: {
-            if (mappedInput.wasPressed(MappedInputManager::Button::Back)) {
+            if (mappedInput.wasReleased(MappedInputManager::Button::Back)) {
                 state = PROFILE_VIEW;
                 requestUpdate();
             }
