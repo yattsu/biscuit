@@ -83,13 +83,9 @@ void SweepActivity::startSweep() {
   rogueAps = 0;
   skimmers = 0;
   requestUpdate();
-  scanWifiCameras();
 }
 
 void SweepActivity::scanWifiCameras() {
-  scanPhase = 0;
-  requestUpdate();
-
   RADIO.ensureWifi();
   WiFi.mode(WIFI_STA);
   WiFi.disconnect();
@@ -113,16 +109,9 @@ void SweepActivity::scanWifiCameras() {
     }
   }
   WiFi.scanDelete();
-
-  scanPhase = 1;
-  requestUpdate();
-  scanWifiKarma();
 }
 
 void SweepActivity::scanWifiKarma() {
-  scanPhase = 1;
-  requestUpdate();
-
   // Scan with show_hidden=true; hidden APs (empty SSID) may be karma/rogue APs
   int n = WiFi.scanNetworks(/*async=*/false, /*show_hidden=*/true);
   if (n > 0) {
@@ -145,16 +134,9 @@ void SweepActivity::scanWifiKarma() {
     }
   }
   WiFi.scanDelete();
-
-  scanPhase = 2;
-  requestUpdate();
-  scanBleThreats();
 }
 
 void SweepActivity::scanBleThreats() {
-  scanPhase = 2;
-  requestUpdate();
-
   RADIO.ensureBle();  // shuts down WiFi first, then starts BLE
 
   BLEScan* scan = BLEDevice::getScan();
@@ -247,10 +229,6 @@ void SweepActivity::scanBleThreats() {
 
   scan->clearResults();
   RADIO.shutdown();
-
-  state = RESULTS;
-  findingIndex = 0;
-  requestUpdate();
 }
 
 // ---- loop -------------------------------------------------------------------
@@ -268,8 +246,30 @@ void SweepActivity::loop() {
       break;
 
     case SCANNING:
-      // All scan work is done synchronously inside startSweep() chain.
-      // Back is ignored while scanning to prevent mid-scan abort leaving radio in bad state.
+      // Advance through scan phases one at a time, yielding back to the main loop
+      // between each phase so the watchdog is fed and the display can update.
+      switch (scanPhase) {
+        case 0:
+          scanWifiCameras();
+          scanPhase = 1;
+          requestUpdate();
+          return;
+        case 1:
+          scanWifiKarma();
+          scanPhase = 2;
+          requestUpdate();
+          return;
+        case 2:
+          scanBleThreats();
+          scanPhase = 3;
+          requestUpdate();
+          return;
+        case 3:
+          state = RESULTS;
+          findingIndex = 0;
+          requestUpdate();
+          return;
+      }
       break;
 
     case RESULTS: {

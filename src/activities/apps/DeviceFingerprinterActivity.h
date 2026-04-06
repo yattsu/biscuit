@@ -2,6 +2,7 @@
 #include <cstdint>
 #include <vector>
 #include <esp_wifi.h>
+#include <freertos/portmacro.h>
 
 #include "activities/Activity.h"
 #include "util/ButtonNavigator.h"
@@ -41,6 +42,8 @@ class DeviceFingerprinterActivity final : public Activity {
   bool promiscuousActive = false;
   unsigned long lastDisplay = 0;
   static constexpr unsigned long DISPLAY_INTERVAL_MS = 2000UL;
+
+  portMUX_TYPE dataMux = portMUX_INITIALIZER_UNLOCKED;
 
   static DeviceFingerprinterActivity* activeInstance;
   static void promiscuousCallback(void* buf, wifi_promiscuous_pkt_type_t type);

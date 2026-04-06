@@ -37,14 +37,13 @@ void TrackerDetectorActivity::onExit() {
 }
 
 void TrackerDetectorActivity::startMonitoring() {
-  RADIO.ensureBle();
-  scanInitialized = true;
   monitoring = true;
   state = MONITORING;
   scanCycleCount = 0;
   devices.clear();
   alertCount = 0;
-  lastScanTime = 0;  // Force immediate first scan
+  lastScanTime = 0;
+  needsBleInit = true;
   requestUpdate();
 }
 
@@ -189,6 +188,15 @@ void TrackerDetectorActivity::loop() {
       break;
 
     case MONITORING: {
+      if (needsBleInit) {
+        needsBleInit = false;
+        RADIO.ensureBle();
+        scanInitialized = true;
+        runScan();
+        requestUpdate();
+        return;
+      }
+
       // Process any available scan results each loop iteration
       processScanResults();
 
@@ -287,6 +295,13 @@ void TrackerDetectorActivity::renderMonitoring() const {
   const auto& metrics = UITheme::getInstance().getMetrics();
   const auto pageWidth = renderer.getScreenWidth();
   const auto pageHeight = renderer.getScreenHeight();
+
+  if (needsBleInit) {
+    GUI.drawHeader(renderer, Rect{0, metrics.topPadding, pageWidth, metrics.headerHeight},
+                   "Tracker Detector");
+    renderer.drawCenteredText(UI_10_FONT_ID, pageHeight / 2, "Starting BLE...");
+    return;
+  }
 
   char subtitle[64];
   unsigned long elapsed = millis() / 60000;  // minutes since boot

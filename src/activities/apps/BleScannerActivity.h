@@ -64,6 +64,7 @@ class BleScannerActivity final : public Activity {
   int selectedDevice = -1;
   int selectedService = -1;
   int selectedChar = -1;
+  bool needsInit = false;
 
   void startBleScan();
   void stopBleScan();

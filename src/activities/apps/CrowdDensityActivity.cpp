@@ -33,14 +33,18 @@ void CrowdDensityActivity::promiscuousCallback(void* buf, wifi_promiscuous_pkt_t
 }
 
 void CrowdDensityActivity::addMac(const uint8_t* mac) {
-  // Linear search — seenMacCount is bounded by MAX_MACS
+  portENTER_CRITICAL(&dataMux);
   for (int i = 0; i < seenMacCount; i++) {
-    if (memcmp(seenMacs[i], mac, 6) == 0) return;
+    if (memcmp(seenMacs[i], mac, 6) == 0) {
+      portEXIT_CRITICAL(&dataMux);
+      return;
+    }
   }
   if (seenMacCount < MAX_MACS) {
     memcpy(seenMacs[seenMacCount], mac, 6);
     seenMacCount++;
   }
+  portEXIT_CRITICAL(&dataMux);
 }
 
 // ---------------------------------------------------------------------------
@@ -111,14 +115,20 @@ void CrowdDensityActivity::loop() {
 
   // Sample into history ring buffer every SAMPLE_INTERVAL_MS
   if (now - lastSample >= SAMPLE_INTERVAL_MS) {
+    portENTER_CRITICAL(&dataMux);
     currentCount = seenMacCount;
+    portEXIT_CRITICAL(&dataMux);
+
     history[historyHead] = currentCount;
     historyHead = (historyHead + 1) % HISTORY_SIZE;
     if (historyCount < HISTORY_SIZE) historyCount++;
 
     // Reset window
+    portENTER_CRITICAL(&dataMux);
     memset(seenMacs, 0, sizeof(seenMacs));
     seenMacCount = 0;
+    portEXIT_CRITICAL(&dataMux);
+
     windowStart = now;
     lastSample = now;
     requestUpdate();
@@ -160,8 +170,12 @@ void CrowdDensityActivity::render(RenderLock&&) {
   }
 
   // Header (CAPTURING state)
+  portENTER_CRITICAL(&dataMux);
+  const int liveCount = seenMacCount;
+  portEXIT_CRITICAL(&dataMux);
+
   char subtitle[24];
-  snprintf(subtitle, sizeof(subtitle), "%d seen (30s window)", seenMacCount);
+  snprintf(subtitle, sizeof(subtitle), "%d seen (30s window)", liveCount);
   GUI.drawHeader(renderer, Rect{0, metrics.topPadding, pageWidth, metrics.headerHeight},
                  "Crowd Density", subtitle);
 
@@ -170,7 +184,7 @@ void CrowdDensityActivity::render(RenderLock&&) {
 
   // Large count display
   char countBuf[8];
-  snprintf(countBuf, sizeof(countBuf), "%d", seenMacCount);
+  snprintf(countBuf, sizeof(countBuf), "%d", liveCount);
   int countY = headerBottom + 20;
   renderer.drawCenteredText(UI_12_FONT_ID, countY, countBuf, true, EpdFontFamily::BOLD);
   countY += renderer.getTextHeight(UI_12_FONT_ID) + 6;

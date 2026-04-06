@@ -12,6 +12,7 @@
 #include "activities/network/WifiSelectionActivity.h"
 #include "components/UITheme.h"
 #include "fontIds.h"
+#include "util/RadioManager.h"
 
 namespace {
 void syncTimeWithNTP() {
@@ -43,10 +44,7 @@ void wifiOff() {
   if (esp_sntp_enabled()) {
     esp_sntp_stop();
   }
-  WiFi.disconnect(false);
-  delay(100);
-  WiFi.mode(WIFI_OFF);
-  delay(100);
+  RADIO.shutdown();
 }
 }  // namespace
 

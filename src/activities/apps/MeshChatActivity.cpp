@@ -15,8 +15,6 @@
 #include "fontIds.h"
 #include "util/RadioManager.h"
 
-#define RADIO RadioManager::getInstance()
-
 MeshChatActivity* MeshChatActivity::activeInstance = nullptr;
 
 void MeshChatActivity::onEnter() {
@@ -30,6 +28,7 @@ void MeshChatActivity::onEnter() {
   espnowInitialized = false;
   lastPresenceTime = 0;
   activeInstance = this;
+  if (!peersMux) peersMux = xSemaphoreCreateMutex();
 
   initEspNow();
   requestUpdate();
@@ -39,6 +38,7 @@ void MeshChatActivity::onExit() {
   Activity::onExit();
   deinitEspNow();
   activeInstance = nullptr;
+  if (peersMux) { vSemaphoreDelete(peersMux); peersMux = nullptr; }
 }
 
 void MeshChatActivity::initEspNow() {
@@ -102,21 +102,25 @@ void MeshChatActivity::onDataRecv(const esp_now_recv_info_t* recvInfo, const uin
     memcpy(peerName, data + 7, 15);
     peerName[15] = '\0';
 
-    bool found = false;
-    for (auto& p : activeInstance->peers) {
-      if (memcmp(p.mac, mac, 6) == 0) {
-        memcpy(p.name, peerName, 16);
-        p.lastSeen = millis();
-        found = true;
-        break;
+    if (activeInstance->peersMux &&
+        xSemaphoreTake(activeInstance->peersMux, pdMS_TO_TICKS(10)) == pdTRUE) {
+      bool found = false;
+      for (auto& p : activeInstance->peers) {
+        if (memcmp(p.mac, mac, 6) == 0) {
+          memcpy(p.name, peerName, 16);
+          p.lastSeen = millis();
+          found = true;
+          break;
+        }
       }
-    }
-    if (!found && activeInstance->peers.size() < 20) {
-      Peer newPeer = {};
-      memcpy(newPeer.mac, mac, 6);
-      memcpy(newPeer.name, peerName, 16);
-      newPeer.lastSeen = millis();
-      activeInstance->peers.push_back(newPeer);
+      if (!found && activeInstance->peers.size() < 20) {
+        Peer newPeer = {};
+        memcpy(newPeer.mac, mac, 6);
+        memcpy(newPeer.name, peerName, 16);
+        newPeer.lastSeen = millis();
+        activeInstance->peers.push_back(newPeer);
+      }
+      xSemaphoreGive(activeInstance->peersMux);
     }
   }
 }
@@ -217,7 +221,11 @@ void MeshChatActivity::loop() {
     }
 
     case PEERS: {
-      const int peerCount = static_cast<int>(peers.size());
+      int peerCount = 0;
+      if (peersMux && xSemaphoreTake(peersMux, pdMS_TO_TICKS(10)) == pdTRUE) {
+        peerCount = static_cast<int>(peers.size());
+        xSemaphoreGive(peersMux);
+      }
       if (peerCount > 0) {
         buttonNavigator.onNext([this, peerCount] {
           peerSelectorIndex = ButtonNavigator::nextIndex(peerSelectorIndex, peerCount);
@@ -252,8 +260,13 @@ void MeshChatActivity::renderChatView() const {
   const auto pageWidth = renderer.getScreenWidth();
   const auto pageHeight = renderer.getScreenHeight();
 
+  int peersCount = 0;
+  if (peersMux && xSemaphoreTake(peersMux, pdMS_TO_TICKS(10)) == pdTRUE) {
+    peersCount = static_cast<int>(peers.size());
+    xSemaphoreGive(peersMux);
+  }
   char subtitle[32];
-  snprintf(subtitle, sizeof(subtitle), "%d msgs | %d peers", messageCount, static_cast<int>(peers.size()));
+  snprintf(subtitle, sizeof(subtitle), "%d msgs | %d peers", messageCount, peersCount);
   GUI.drawHeader(renderer, Rect{0, metrics.topPadding, pageWidth, metrics.headerHeight},
                  "Mesh Chat", subtitle);
 
@@ -297,30 +310,36 @@ void MeshChatActivity::renderPeers() const {
   const auto pageWidth = renderer.getScreenWidth();
   const auto pageHeight = renderer.getScreenHeight();
 
+  std::vector<Peer> peersCopy;
+  if (peersMux && xSemaphoreTake(peersMux, pdMS_TO_TICKS(10)) == pdTRUE) {
+    peersCopy = peers;
+    xSemaphoreGive(peersMux);
+  }
+
   char subtitle[32];
-  snprintf(subtitle, sizeof(subtitle), "%d nearby", static_cast<int>(peers.size()));
+  snprintf(subtitle, sizeof(subtitle), "%d nearby", static_cast<int>(peersCopy.size()));
   GUI.drawHeader(renderer, Rect{0, metrics.topPadding, pageWidth, metrics.headerHeight},
                  "Peers", subtitle);
 
   const int contentTop = metrics.topPadding + metrics.headerHeight + metrics.verticalSpacing;
   const int contentHeight = pageHeight - contentTop - metrics.buttonHintsHeight - metrics.verticalSpacing;
 
-  if (peers.empty()) {
+  if (peersCopy.empty()) {
     renderer.drawCenteredText(UI_10_FONT_ID, contentTop + contentHeight / 2,
                               "No peers discovered yet...");
   } else {
     GUI.drawList(
         renderer, Rect{0, contentTop, pageWidth, contentHeight},
-        static_cast<int>(peers.size()), peerSelectorIndex,
-        [this](int index) -> std::string {
-          return std::string(peers[index].name);
+        static_cast<int>(peersCopy.size()), peerSelectorIndex,
+        [&peersCopy](int index) -> std::string {
+          return std::string(peersCopy[index].name);
         },
-        [this](int index) -> std::string {
+        [&peersCopy](int index) -> std::string {
           char buf[48];
-          unsigned long ago = (millis() - peers[index].lastSeen) / 1000;
+          unsigned long ago = (millis() - peersCopy[index].lastSeen) / 1000;
           snprintf(buf, sizeof(buf), "%02X:%02X:%02X:%02X:%02X:%02X  %lus ago",
-                   peers[index].mac[0], peers[index].mac[1], peers[index].mac[2],
-                   peers[index].mac[3], peers[index].mac[4], peers[index].mac[5], ago);
+                   peersCopy[index].mac[0], peersCopy[index].mac[1], peersCopy[index].mac[2],
+                   peersCopy[index].mac[3], peersCopy[index].mac[4], peersCopy[index].mac[5], ago);
           return buf;
         });
   }

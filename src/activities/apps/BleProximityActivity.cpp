@@ -32,11 +32,7 @@ void BleProximityActivity::onEnter() {
   selectorIndex = 0;
   scanning = false;
   scanInitialized = false;
-
-  RADIO.ensureBle();
-  scanInitialized = true;
-  activeProximity = this;
-  startBleScan();
+  needsInit = true;
   requestUpdate();
 }
 
@@ -82,6 +78,16 @@ void BleProximityActivity::processScanResults() {
 }
 
 void BleProximityActivity::loop() {
+  if (needsInit) {
+    needsInit = false;
+    RADIO.ensureBle();
+    scanInitialized = true;
+    activeProximity = this;
+    startBleScan();
+    requestUpdate();
+    return;
+  }
+
   if (scanning && scanInitialized) {
     BLEScan* scan = BLEDevice::getScan();
     BLEScanResults* results = scan->getResults();
@@ -170,6 +176,13 @@ void BleProximityActivity::render(RenderLock&&) {
   const auto pageHeight = renderer.getScreenHeight();
 
   renderer.clearScreen();
+
+  if (needsInit) {
+    GUI.drawHeader(renderer, Rect{0, metrics.topPadding, pageWidth, metrics.headerHeight}, "BLE Proximity");
+    renderer.drawCenteredText(UI_10_FONT_ID, pageHeight / 2, "Starting BLE...");
+    renderer.displayBuffer();
+    return;
+  }
 
   char subtitle[32];
   snprintf(subtitle, sizeof(subtitle), "%zu devices", devices.size());

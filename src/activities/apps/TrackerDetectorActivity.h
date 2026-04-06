@@ -34,6 +34,7 @@ class TrackerDetectorActivity final : public Activity {
   State state = IDLE;
   bool monitoring = false;
   bool scanInitialized = false;
+  bool needsBleInit = false;
   ButtonNavigator buttonNavigator;
   int selectorIndex = 0;
 

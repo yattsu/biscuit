@@ -42,11 +42,7 @@ void BleScannerActivity::onEnter() {
   selectedDevice = -1;
   selectedService = -1;
   selectedChar = -1;
-
-  RADIO.ensureBle();
-  scanInitialized = true;
-  activeScanner = this;
-  startBleScan();
+  needsInit = true;
   requestUpdate();
 }
 
@@ -292,6 +288,16 @@ std::string BleScannerActivity::bytesToAsciiSafe(const uint8_t* data, int len) {
 // ---- loop ----
 
 void BleScannerActivity::loop() {
+  if (needsInit) {
+    needsInit = false;
+    RADIO.ensureBle();
+    scanInitialized = true;
+    activeScanner = this;
+    startBleScan();
+    requestUpdate();
+    return;
+  }
+
   if (state == DETAIL) {
     if (mappedInput.wasReleased(MappedInputManager::Button::Back)) {
       state = SCANNING_VIEW;
@@ -469,6 +475,13 @@ void BleScannerActivity::render(RenderLock&&) {
   const auto pageHeight = renderer.getScreenHeight();
 
   renderer.clearScreen();
+
+  if (needsInit) {
+    GUI.drawHeader(renderer, Rect{0, metrics.topPadding, pageWidth, metrics.headerHeight}, tr(STR_BLE_SCANNER));
+    renderer.drawCenteredText(UI_10_FONT_ID, pageHeight / 2, "Starting BLE...");
+    renderer.displayBuffer();
+    return;
+  }
 
   if (state == CONNECTING) {
     GUI.drawHeader(renderer, Rect{0, metrics.topPadding, pageWidth, metrics.headerHeight},

@@ -93,6 +93,10 @@ void PacketMonitorActivity::onExit() {
   Activity::onExit();
   stopPcapRecording();
   stopMonitor();
+  if (fileMux) {
+    vSemaphoreDelete(fileMux);
+    fileMux = nullptr;
+  }
 }
 
 void PacketMonitorActivity::startMonitor() {

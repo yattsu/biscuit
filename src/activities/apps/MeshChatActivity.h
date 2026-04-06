@@ -3,6 +3,8 @@
 #include <esp_now.h>
 #include <string>
 #include <vector>
+#include <freertos/FreeRTOS.h>
+#include <freertos/semphr.h>
 
 #include "activities/Activity.h"
 #include "util/ButtonNavigator.h"
@@ -48,6 +50,7 @@ class MeshChatActivity final : public Activity {
   // Peers
   std::vector<Peer> peers;
   int peerSelectorIndex = 0;
+  SemaphoreHandle_t peersMux = nullptr;
 
   // Identity
   char localName[16] = "biscuit";

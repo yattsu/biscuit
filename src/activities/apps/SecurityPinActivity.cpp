@@ -25,7 +25,13 @@ void SecurityPinActivity::hashPin(const char* pin, uint8_t* out) {
 bool SecurityPinActivity::checkPin(const char* pin, const uint8_t* hash) const {
   uint8_t computed[32];
   hashPin(pin, computed);
-  return memcmp(computed, hash, 32) == 0;
+  volatile uint8_t diff = 0;
+  for (int i = 0; i < 32; i++) {
+    diff |= computed[i] ^ hash[i];
+  }
+  // Zero the computed hash before returning
+  memset(computed, 0, sizeof(computed));
+  return diff == 0;
 }
 
 void SecurityPinActivity::clearPinBuffer() {
@@ -107,6 +113,8 @@ void SecurityPinActivity::onEnter() {
 }
 
 void SecurityPinActivity::onExit() {
+  memset(pinBuffer, 0, sizeof(pinBuffer));
+  memset(newPin, 0, sizeof(newPin));
   Activity::onExit();
 }
 

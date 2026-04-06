@@ -165,8 +165,9 @@ void PerimeterWatchActivity::render(RenderLock&&) {
     renderer.drawCenteredText(UI_10_FONT_ID, midY - 20, buf);
     snprintf(buf, sizeof(buf), "Intrusions: %d", static_cast<int>(intrusions.size()));
     renderer.drawCenteredText(UI_12_FONT_ID, midY + 20, buf, true, EpdFontFamily::BOLD);
-    unsigned long nextScan = SCAN_INTERVAL_MS - (millis() - lastScanMs);
-    snprintf(buf, sizeof(buf), "Next scan: %lus", nextScan / 1000UL);
+    unsigned long elapsed = millis() - lastScanMs;
+    unsigned long nextScan = (elapsed < SCAN_INTERVAL_MS) ? (SCAN_INTERVAL_MS - elapsed) / 1000UL : 0;
+    snprintf(buf, sizeof(buf), "Next scan: %lus", nextScan);
     renderer.drawCenteredText(SMALL_FONT_ID, midY + 60, buf);
     const auto labels = mappedInput.mapLabels("Stop", "", "", "");
     GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);

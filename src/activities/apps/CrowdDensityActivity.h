@@ -1,6 +1,7 @@
 #pragma once
 #include <cstdint>
 #include <esp_wifi.h>
+#include <freertos/portmacro.h>
 
 #include "activities/Activity.h"
 
@@ -41,6 +42,8 @@ class CrowdDensityActivity final : public Activity {
   int seenMacCount = 0;
 
   bool promiscuousActive = false;
+
+  portMUX_TYPE dataMux = portMUX_INITIALIZER_UNLOCKED;
 
   static CrowdDensityActivity* activeInstance;
   static void promiscuousCallback(void* buf, wifi_promiscuous_pkt_type_t type);

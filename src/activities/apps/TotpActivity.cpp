@@ -57,7 +57,10 @@ uint32_t TotpActivity::currentCode() const {
   int keyLen = base32Decode(acc.secret, key, sizeof(key));
   if (keyLen <= 0) return 0;
   uint64_t t = (uint64_t)time(nullptr) / acc.period;
-  return generateTotp(key, keyLen, t, acc.digits);
+  uint32_t code = generateTotp(key, keyLen, t, acc.digits);
+  volatile uint8_t* vkey = key;
+  for (size_t i = 0; i < sizeof(key); i++) vkey[i] = 0;
+  return code;
 }
 
 // ---- Storage ----

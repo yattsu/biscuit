@@ -76,21 +76,26 @@ void DeviceFingerprinterActivity::onProbePacket(const uint8_t* payload, uint16_t
   (void)len;
   const uint8_t* srcMac = payload + 10;
 
+  portENTER_CRITICAL(&dataMux);
+
   // Search for existing entry
   for (auto& dev : devices) {
     if (memcmp(dev.mac, srcMac, 6) == 0) {
       dev.probeCount++;
       dev.rssi = static_cast<int8_t>(rssi);
-      // Refresh OS estimate as probe count grows
       const char* os = estimateOs(srcMac, dev.probeCount);
       strncpy(dev.estimatedOs, os, sizeof(dev.estimatedOs) - 1);
       dev.estimatedOs[sizeof(dev.estimatedOs) - 1] = '\0';
+      portEXIT_CRITICAL(&dataMux);
       return;
     }
   }
 
   // New device
-  if (static_cast<int>(devices.size()) >= MAX_DEVICES) return;
+  if (static_cast<int>(devices.size()) >= MAX_DEVICES) {
+    portEXIT_CRITICAL(&dataMux);
+    return;
+  }
 
   FingerprintedDevice d{};
   memcpy(d.mac, srcMac, 6);
@@ -100,6 +105,8 @@ void DeviceFingerprinterActivity::onProbePacket(const uint8_t* payload, uint16_t
   strncpy(d.estimatedOs, os, sizeof(d.estimatedOs) - 1);
   d.estimatedOs[sizeof(d.estimatedOs) - 1] = '\0';
   devices.push_back(d);
+
+  portEXIT_CRITICAL(&dataMux);
 }
 
 // ---------------------------------------------------------------------------
@@ -110,6 +117,7 @@ void DeviceFingerprinterActivity::onEnter() {
   Activity::onEnter();
   state = READY;
   devices.clear();
+  devices.reserve(MAX_DEVICES);
   deviceIndex = 0;
   promiscuousActive = false;
   requestUpdate();
@@ -167,7 +175,9 @@ void DeviceFingerprinterActivity::loop() {
     requestUpdate();
   }
 
+  portENTER_CRITICAL(&dataMux);
   const int count = static_cast<int>(devices.size());
+  portEXIT_CRITICAL(&dataMux);
 
   buttonNavigator.onNext([this, count] {
     if (count > 0) {
@@ -211,7 +221,10 @@ void DeviceFingerprinterActivity::render(RenderLock&&) {
     return;
   }
 
-  const int devCount = static_cast<int>(devices.size());
+  portENTER_CRITICAL(&dataMux);
+  const auto devicesCopy = devices;
+  portEXIT_CRITICAL(&dataMux);
+  const int devCount = static_cast<int>(devicesCopy.size());
 
   char subtitle[24];
   snprintf(subtitle, sizeof(subtitle), "%d devices", devCount);
@@ -230,8 +243,8 @@ void DeviceFingerprinterActivity::render(RenderLock&&) {
     GUI.drawList(
         renderer, Rect{0, contentTop, pageWidth, contentHeight},
         devCount, deviceIndex,
-        [this](int i) -> std::string {
-          const auto& d = devices[i];
+        [&devicesCopy](int i) -> std::string {
+          const auto& d = devicesCopy[i];
           const bool randomized = (d.mac[0] & 0x02) != 0;
           if (randomized) {
             return std::string("Randomized  ") + d.estimatedOs;
@@ -241,8 +254,8 @@ void DeviceFingerprinterActivity::render(RenderLock&&) {
                    d.mac[0], d.mac[1], d.mac[2], d.mac[3], d.mac[4], d.mac[5]);
           return std::string(buf) + "  " + d.estimatedOs;
         },
-        [this](int i) -> std::string {
-          const auto& d = devices[i];
+        [&devicesCopy](int i) -> std::string {
+          const auto& d = devicesCopy[i];
           char buf[32];
           snprintf(buf, sizeof(buf), "Probes: %d  RSSI: %d dBm",
                    d.probeCount, static_cast<int>(d.rssi));

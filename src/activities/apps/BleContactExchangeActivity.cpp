@@ -15,8 +15,6 @@
 #include "fontIds.h"
 #include "util/RadioManager.h"
 
-#define RADIO RadioManager::getInstance()
-
 // ---------------------------------------------------------------------------
 // Lifecycle
 // ---------------------------------------------------------------------------

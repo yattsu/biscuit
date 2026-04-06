@@ -80,6 +80,7 @@ void ProbeSnifferActivity::onEnter() {
 
   state = SNIFFING_VIEW;
   entries.clear();
+  entries.reserve(MAX_ENTRIES);
   selectorIndex = 0;
   detailIndex = 0;
   sniffing = false;
@@ -141,8 +142,12 @@ void ProbeSnifferActivity::loop() {
   if (now - lastUpdateTime >= UPDATE_INTERVAL_MS) {
     lastUpdateTime = now;
     portENTER_CRITICAL(&dataMux);
-    std::sort(entries.begin(), entries.end(),
+    auto sortCopy = entries;
+    portEXIT_CRITICAL(&dataMux);
+    std::sort(sortCopy.begin(), sortCopy.end(),
               [](const ProbeEntry& a, const ProbeEntry& b) { return a.lastSeen > b.lastSeen; });
+    portENTER_CRITICAL(&dataMux);
+    entries = std::move(sortCopy);
     portEXIT_CRITICAL(&dataMux);
     requestUpdate();
   }
@@ -296,18 +301,19 @@ void ProbeSnifferActivity::saveToCsv() {
   String csv = "MAC,SSID,RSSI,Count\n";
 
   portENTER_CRITICAL(&dataMux);
-  const size_t count = entries.size();
-  // Build CSV under lock to avoid mutation mid-iteration
+  auto entriesCopy = entries;
+  portEXIT_CRITICAL(&dataMux);
+
+  const size_t count = entriesCopy.size();
   for (size_t i = 0; i < count; i++) {
     char line[96];
     snprintf(line, sizeof(line), "%02X:%02X:%02X:%02X:%02X:%02X,%s,%d,%lu\n",
-             entries[i].mac[0], entries[i].mac[1], entries[i].mac[2],
-             entries[i].mac[3], entries[i].mac[4], entries[i].mac[5],
-             entries[i].ssid.c_str(), entries[i].rssi,
-             static_cast<unsigned long>(entries[i].count));
+             entriesCopy[i].mac[0], entriesCopy[i].mac[1], entriesCopy[i].mac[2],
+             entriesCopy[i].mac[3], entriesCopy[i].mac[4], entriesCopy[i].mac[5],
+             entriesCopy[i].ssid.c_str(), entriesCopy[i].rssi,
+             static_cast<unsigned long>(entriesCopy[i].count));
     csv += line;
   }
-  portEXIT_CRITICAL(&dataMux);
 
   Storage.writeFile(filename, csv);
   LOG_DBG("PROBE", "Saved %zu probes to %s", count, filename);

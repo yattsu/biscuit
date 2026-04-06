@@ -31,6 +31,7 @@ class BleProximityActivity final : public Activity {
   int selectorIndex = 0;
   bool scanning = false;
   bool scanInitialized = false;
+  bool needsInit = false;
   unsigned long lastScanTime = 0;
   static constexpr unsigned long STALE_TIMEOUT_MS = 15000;
 

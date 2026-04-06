@@ -322,8 +322,8 @@ void BreadcrumbTrailActivity::renderRetracing() const {
   renderer.drawCenteredText(UI_12_FONT_ID, y, status, true, EpdFontFamily::BOLD);
   y += 45;
 
-  unsigned long nextIn = 5 - ((millis() - lastCrumb) / 1000);
-  if ((millis() - lastCrumb) >= 5000) nextIn = 0;
+  unsigned long elapsedSec = (millis() - lastCrumb) / 1000;
+  unsigned long nextIn = (elapsedSec < 5) ? (5 - elapsedSec) : 0;
   snprintf(buf, sizeof(buf), "Scan in: %lus", nextIn);
   renderer.drawCenteredText(SMALL_FONT_ID, y, buf);
 

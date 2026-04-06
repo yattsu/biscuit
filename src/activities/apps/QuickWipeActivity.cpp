@@ -124,7 +124,9 @@ int QuickWipeActivity::wipeDirectory(const char* path) {
 
 // Static wipe — no UI, used by SecurityPinActivity.
 int QuickWipeActivity::performWipe() {
-  return wipeDirectory("/biscuit");
+  int count = wipeDirectory("/biscuit");
+  count += wipeDirectory("/.crosspoint");
+  return count;
 }
 
 // ---- Activity lifecycle ----
@@ -150,8 +152,10 @@ void QuickWipeActivity::startWipe() {
   // Perform wipe synchronously (blocking) — this runs in the loop() FreeRTOS task.
   // E-ink already shows "Wiping..." from the previous render frame.
   filesDeleted = wipeDirectory("/biscuit");
-  // Recreate the /biscuit root so the device stays functional
+  filesDeleted += wipeDirectory("/.crosspoint");
+  // Recreate directories so the device stays functional
   Storage.mkdir("/biscuit");
+  Storage.mkdir("/.crosspoint");
 
   state = DONE;
   requestUpdate();
