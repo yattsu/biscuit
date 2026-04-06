@@ -54,6 +54,10 @@ void FireActivity::setTarget(const uint8_t mac[6]) {
     hasPreselected = true;
 }
 
+void FireActivity::setAttack(int attackType) {
+    preselectedAttack = attackType;
+}
+
 void FireActivity::onEnter() {
     Activity::onEnter();
     TARGETS.loadCache();
@@ -76,6 +80,20 @@ void FireActivity::onEnter() {
     // Always start with attack menu — target is optional
     buildAttackMenu();
     state = ATTACK_SELECT;
+
+    if (preselectedAttack >= 0) {
+        for (int i = 0; i < availableCount; i++) {
+            if (attacks[i].type == static_cast<AttackType>(preselectedAttack)) {
+                attackIndex = i;
+                if (attacks[i].available) {
+                    state = CONFIRM;
+                }
+                break;
+            }
+        }
+        preselectedAttack = -1;
+    }
+
     loadTargetList();
 
     requestUpdate();
@@ -863,7 +881,12 @@ void FireActivity::loop() {
                 if (target) {
                     memcpy(targetMac, target->mac, 6);
                     buildAttackMenu();  // rebuild with target context
-                    state = ATTACK_SELECT;
+                    // If the attack that sent us here is now available, skip back to confirm
+                    if (attackIndex < availableCount && attacks[attackIndex].available) {
+                        state = CONFIRM;
+                    } else {
+                        state = ATTACK_SELECT;
+                    }
                     requestUpdate();
                 }
             }

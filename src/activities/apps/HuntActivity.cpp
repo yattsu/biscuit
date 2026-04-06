@@ -121,50 +121,50 @@ void HuntActivity::analyzeCapabilities() {
     capIndex = 0;
     if (!current) return;
 
-    auto add = [this](const char* n, const char* r, bool a) {
+    auto add = [this](const char* n, const char* r, bool a, CapAction act = CAP_NONE, int atkType = -1) {
         if (capCount < MAX_CAPABILITIES) {
-            capabilities[capCount++] = {n, r, a};
+            capabilities[capCount++] = {n, r, a, act, atkType};
         }
     };
 
     if (current->type == TargetType::AP) {
         add("Handshake capture",
             current->pmf ? "PMF enabled — may fail" : "No PMF — feasible",
-            !current->pmf);
+            !current->pmf, CAP_FIRE, 3);
         add("PMKID harvest",
             "Passive — no client needed",
-            current->authType >= 3);
+            current->authType >= 3, CAP_FIRE, 4);
         add("Portal clone",
             "Clone AP + serve portal page",
-            true);
+            true, CAP_FIRE, 8);
         add("Beacon flood",
             "Flood nearby device WiFi lists",
-            true);
+            true, CAP_FIRE, 5);
         if (current->wps) {
             add("WPS assessment",
-                "WPS enabled — potential weakness",
-                true);
+                "No automated tool available",
+                false, CAP_NONE, -1);
         }
     } else if (current->type == TargetType::STA) {
         add("Probe response",
             current->probeCount > 0 ? "Has probed SSIDs — feasible" : "No probes seen",
-            current->probeCount > 0);
+            current->probeCount > 0, CAP_FIRE, 7);
         add("Track movement",
             "Monitor RSSI over time",
-            true);
+            true, CAP_TRACK, -1);
         add("AP association spoof",
             "Respond as known AP to client",
-            current->probeCount > 0);
+            current->probeCount > 0, CAP_FIRE, 7);
     } else if (current->type == TargetType::BLE) {
         add("Clone advertisement",
             "Copy BLE broadcast data",
-            true);
+            true, CAP_FIRE, 9);
         add("Enumerate services",
             "Connect and list GATT services",
-            true);
+            true, CAP_FIRE, 11);
         add("Track proximity",
             "Monitor RSSI distance",
-            true);
+            true, CAP_TRACK, -1);
     }
 }
 
@@ -316,9 +316,16 @@ void HuntActivity::loop() {
             }
             if (mappedInput.wasReleased(MappedInputManager::Button::Confirm)) {
                 if (current && capIndex < capCount && capabilities[capIndex].available) {
-                    auto fire = std::make_unique<FireActivity>(renderer, mappedInput);
-                    fire->setTarget(current->mac);
-                    activityManager.pushActivity(std::move(fire));
+                    const auto& cap = capabilities[capIndex];
+                    if (cap.action == CAP_FIRE && cap.fireAttackType >= 0) {
+                        auto fire = std::make_unique<FireActivity>(renderer, mappedInput);
+                        fire->setTarget(current->mac);
+                        fire->setAttack(cap.fireAttackType);
+                        activityManager.pushActivity(std::move(fire));
+                    } else if (cap.action == CAP_TRACK) {
+                        state = MOVEMENT_LOG;
+                        requestUpdate();
+                    }
                 }
             }
             break;

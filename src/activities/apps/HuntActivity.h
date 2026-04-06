@@ -33,10 +33,13 @@ private:
     Target* current = nullptr;
 
     // Capability analysis
+    enum CapAction : uint8_t { CAP_FIRE, CAP_TRACK, CAP_NONE };
     struct Capability {
         const char* name;
         const char* reason;
         bool available;
+        CapAction action;
+        int fireAttackType;  // FireActivity::AttackType cast to int, -1 if N/A
     };
     static constexpr int MAX_CAPABILITIES = 10;
     Capability capabilities[MAX_CAPABILITIES] = {};

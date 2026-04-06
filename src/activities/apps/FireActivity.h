@@ -11,6 +11,7 @@ public:
         : Activity("Fire", renderer, mappedInput) {}
 
     void setTarget(const uint8_t mac[6]);
+    void setAttack(int attackType);
 
     void onEnter() override;
     void onExit() override;
@@ -53,6 +54,7 @@ private:
     uint8_t targetMac[6] = {};
     Target* target = nullptr;
     bool hasPreselected = false;
+    int preselectedAttack = -1;
 
     // Target select list
     Target* targetList[50] = {};
