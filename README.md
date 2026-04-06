@@ -191,3 +191,4 @@ Biscuit is a fork of [**CrossPoint Reader**](https://github.com/crosspoint-reade
 CrossPoint itself was inspired by [**diy-esp32-epub-reader** by atomic14](https://github.com/atomic14/diy-esp32-epub-reader).
 
 Not affiliated with Xteink or any manufacturer of the X4 hardware.
+
