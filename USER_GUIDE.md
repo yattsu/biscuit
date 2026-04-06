@@ -71,9 +71,14 @@ Upon turning the device on for the first time, you will be placed on the **[Home
 
 ## 3. Screens
 
-### 3.1 Home Screen
+### 3.1 Dashboard
 
-The Home screen is the main entry point to the firmware. From here you can navigate to **[Reading Mode](#4-reading-mode)** with the most recently read book, the **[Browse Files](#33-browse-files-screen)** screen, the **[Recent Books](#34-recent-books-screen)** screen, the **[File Transfer](#35-file-transfer-screen)** screen, or **[Settings](#36-settings)**.
+The Dashboard is the main screen. It shows 8 category tiles in a 2×4 grid:
+Network, Recon, Security, Comms, Tools, Games, System, Reader.
+
+A status bar at the top shows battery, heap, uptime, and WiFi status.
+
+Navigate tiles with Left/Right (front buttons) and Up/Down (side buttons). Press Confirm to enter a category.
 
 ### 3.2 Reading Mode
 
@@ -146,9 +151,9 @@ The Settings screen allows you to configure the device's behavior. There are a f
 - **Refresh Frequency**: Set how often the screen does a full refresh while reading to reduce ghosting; options are every 1, 5, 10, 15, or 30 pages.
 
 - **UI Theme**: Set which UI theme to use:
-  - "Classic" - The original Crosspoint theme
-  - "Lyra" - The new theme for Crosspoint featuring rounded elements and menu icons
-  - "Lyra Extended" - Lyra, but displays 3 books instead of 1 on the **[Home Screen](#31-home-screen)**
+  - "Classic" - The original theme
+  - "Lyra" - Theme featuring rounded elements and menu icons
+  - "Lyra Extended" - Lyra, but displays 3 books instead of 1 on the home screen
 - **Sunlight Fading Fix**: Configure whether to enable a software-fix for the issue where white X4 models may fade when used in direct sunlight:
   - "OFF" (default) - Disable the fix
   - "ON" - Enable the fix
@@ -196,7 +201,7 @@ The Settings screen allows you to configure the device's behavior. There are a f
 - **KOReader Sync**: Options for setting up KOReader for syncing book progress.
 - **OPDS Browser**: Configure OPDS server settings for browsing and downloading books. Set the server URL (for Calibre Content Server, add `/opds` to the end), and optionally configure username and password for servers requiring authentication. Note: Only HTTP Basic authentication is supported. If using Calibre Content Server with authentication enabled, you must set it to use Basic authentication instead of the default Digest authentication.
 - **Clear Reading Cache**: Clear the internal SD card cache.
-- **Check for updates**: Check for Crosspoint firmware updates over WiFi.
+- **Check for updates**: Check for firmware updates over WiFi.
 - **Language**: Set the system language (see **[Supported Languages](#supported-languages)** for more information).
 
 #### 3.6.5 KOReader Sync Quick Setup
@@ -398,7 +403,7 @@ Please note that this firmware is currently in active development. The following
 
 ## 7. Troubleshooting Issues & Escaping Bootloop
 
-If an issue or crash is encountered while using Crosspoint, feel free to raise an issue ticket and attach the serial monitor logs. The logs can be obtained by connecting the device to a computer and starting a serial monitor. Either [Serial Monitor](https://www.serialmonitor.org/) or the following command can be used:
+If an issue or crash is encountered while using Biscuit, feel free to raise an issue ticket and attach the serial monitor logs. The logs can be obtained by connecting the device to a computer and starting a serial monitor. Either [Serial Monitor](https://www.serialmonitor.org/) or the following command can be used:
 
 ```
 pio device monitor
