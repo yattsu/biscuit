@@ -193,3 +193,4 @@ CrossPoint itself was inspired by [**diy-esp32-epub-reader** by atomic14](https:
 Not affiliated with Xteink or any manufacturer of the X4 hardware.
 
 
+
