@@ -92,6 +92,7 @@ private:
 
     // Build
     void buildAttackMenu();
+    void loadTargetList();
 
     // Attack execution (called repeatedly from loop)
     void tickDeauthBroadcast();

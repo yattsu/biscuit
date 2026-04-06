@@ -46,9 +46,6 @@ private:
     // Profile scroll
     int profileScroll = 0;
 
-    // Popup display flag
-    bool showPopup = false;
-
     void analyzeCapabilities();
     void selectTarget(int index);
     void loadTargetList();

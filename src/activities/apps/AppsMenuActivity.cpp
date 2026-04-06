@@ -529,7 +529,8 @@ void AppsMenuActivity::drawTile(int index, int x, int y, int w, int h, bool sele
       case 6:
         snprintf(statusStr, sizeof(statusStr), "Heap: %luK", (unsigned long)(freeHeap / 1024));
         break;
-      default:
+      case 5:  // Games
+      case 7:  // Reader
         if (lastUsedName[index][0] != '\0') {
           snprintf(statusStr, sizeof(statusStr), "Last: %s", lastUsedName[index]);
         }

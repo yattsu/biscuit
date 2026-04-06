@@ -1,4 +1,6 @@
 #include "HuntActivity.h"
+#include "FireActivity.h"
+#include "activities/ActivityManager.h"
 
 #include <cstring>
 #include <cstdio>
@@ -173,7 +175,6 @@ void HuntActivity::analyzeCapabilities() {
 void HuntActivity::onEnter() {
     Activity::onEnter();
     TARGETS.loadCache();
-    showPopup = false;
 
     if (hasPreselected) {
         current = TARGETS.findByMac(selectedMac);
@@ -223,16 +224,6 @@ void HuntActivity::onExit() {
 // ---------------------------------------------------------------------------
 
 void HuntActivity::loop() {
-    // Dismiss popup on any press
-    if (showPopup) {
-        if (mappedInput.wasPressed(MappedInputManager::Button::Back) ||
-            mappedInput.wasPressed(MappedInputManager::Button::Confirm)) {
-            showPopup = false;
-            requestUpdate();
-        }
-        return;
-    }
-
     switch (state) {
 
         case SELECT_TARGET: {
@@ -324,8 +315,11 @@ void HuntActivity::loop() {
                 }
             }
             if (mappedInput.wasPressed(MappedInputManager::Button::Confirm)) {
-                showPopup = true;
-                requestUpdate();
+                if (current && capIndex < capCount && capabilities[capIndex].available) {
+                    auto fire = std::make_unique<FireActivity>(renderer, mappedInput);
+                    fire->setTarget(current->mac);
+                    activityManager.pushActivity(std::move(fire));
+                }
             }
             break;
         }
@@ -346,12 +340,6 @@ void HuntActivity::loop() {
 
 void HuntActivity::render(RenderLock&&) {
     renderer.clearScreen();
-
-    if (showPopup) {
-        GUI.drawPopup(renderer, "Launch from FIRE module");
-        renderer.displayBuffer();
-        return;
-    }
 
     switch (state) {
         case SELECT_TARGET:  renderSelectTarget();  break;
@@ -557,7 +545,7 @@ void HuntActivity::renderCapabilities() const {
             });
     }
 
-    const auto labels = mappedInput.mapLabels("Back", "Info", "Up", "Down");
+    const auto labels = mappedInput.mapLabels("Back", "Launch", "Up", "Down");
     GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
 }
 
