@@ -14,6 +14,7 @@
 #include "DiceRollerActivity.h"
 #include "DnsLookupActivity.h"
 #include "EtchASketchActivity.h"
+#include "FireActivity.h"
 #include "HttpClientActivity.h"
 #include "CaptivePortalActivity.h"
 #include "GameOfLifeActivity.h"
@@ -185,8 +186,8 @@ void AppsMenuActivity::loop() {
           app = std::make_unique<HuntActivity>(renderer, mappedInput);
           break;
         case 2:
-          // FIRE — placeholder until FireActivity is implemented
-          // For now, show the old wireless testing apps as a category
+          app = std::make_unique<FireActivity>(renderer, mappedInput);
+          break;
           {
             std::vector<AppCategoryActivity::AppEntry> e = {
                 AppCategoryActivity::SectionHeader("WIRELESS TESTING"),
