@@ -394,10 +394,13 @@ void HuntActivity::renderSelectTarget() const {
             },
             [this](int i) -> std::string {
                 if (!targetList[i]) return "";
-                char buf[32];
+                bool stale = !TARGETS.isSeenThisSession(targetList[i]);
+                char buf[40];
                 char macBuf[18];
                 formatMac(macBuf, sizeof(macBuf), targetList[i]->mac);
-                snprintf(buf, sizeof(buf), "%s  RSSI %d", macBuf, (int)targetList[i]->rssi);
+                snprintf(buf, sizeof(buf), "%s  %s%d", macBuf,
+                         stale ? "OLD " : "RSSI ",
+                         (int)targetList[i]->rssi);
                 return std::string(buf);
             });
     }

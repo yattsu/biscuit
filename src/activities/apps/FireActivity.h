@@ -55,6 +55,7 @@ private:
     Target* target = nullptr;
     bool hasPreselected = false;
     int preselectedAttack = -1;
+    AttackType pendingAttack = ATK_COUNT;  // which attack triggered TARGET_SELECT
 
     // Target select list
     Target* targetList[50] = {};
@@ -95,6 +96,8 @@ private:
     // Build
     void buildAttackMenu();
     void loadTargetList();
+    static bool isUniversalAttack(AttackType atk);
+    TargetType requiredTargetType(AttackType atk) const;
 
     // Attack execution (called repeatedly from loop)
     void tickDeauthBroadcast();

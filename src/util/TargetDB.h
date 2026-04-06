@@ -62,12 +62,16 @@ public:
     // Export
     bool exportProfile(const uint8_t mac[6], const char* path);
 
+    // Session tracking
+    bool isSeenThisSession(const Target* t) const;
+
 private:
     TargetDB() = default;
     static constexpr int MAX_CACHE = 50;
     Target cache[MAX_CACHE] = {};
     int cacheCount = 0;
     bool dirty = false;
+    bool seenThisSession[MAX_CACHE] = {};
 
     int findCacheIndex(const uint8_t mac[6]) const;
     void evictOldest();

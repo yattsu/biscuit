@@ -46,6 +46,25 @@ void IRAM_ATTR FireActivity::captureCallback(void* buf, wifi_promiscuous_pkt_typ
 }
 
 // ---------------------------------------------------------------------------
+// Attack classification helpers
+// ---------------------------------------------------------------------------
+
+bool FireActivity::isUniversalAttack(AttackType atk) {
+    return atk == ATK_BLE_SPAM || atk == ATK_AIRTAG_SWARM ||
+           atk == ATK_BEACON_FLOOD || atk == ATK_KARMA_AP;
+}
+
+TargetType FireActivity::requiredTargetType(AttackType atk) const {
+    switch (atk) {
+        case ATK_BLE_CLONE:
+        case ATK_BLE_ENUMERATE:
+            return TargetType::BLE;
+        default:
+            return TargetType::AP;
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Lifecycle
 // ---------------------------------------------------------------------------
 
@@ -72,6 +91,7 @@ void FireActivity::onEnter() {
     beaconCount = 0;
     statusLine[0] = '\0';
     resultLine[0] = '\0';
+    pendingAttack = ATK_COUNT;
 
     if (hasPreselected) {
         target = TARGETS.findByMac(targetMac);
@@ -102,17 +122,20 @@ void FireActivity::onEnter() {
 void FireActivity::loadTargetList() {
     targetCount = 0;
     targetIndex = 0;
-    TARGETS.getSorted(TargetType::AP, targetList, 25, targetCount, 0);
-    int staCount = 0;
-    Target* staList[25] = {};
-    TARGETS.getSorted(TargetType::STA, staList, 25, staCount, 0);
-    for (int i = 0; i < staCount && targetCount < 50; i++)
-        targetList[targetCount++] = staList[i];
-    int bleCount = 0;
-    Target* bleList[25] = {};
-    TARGETS.getSorted(TargetType::BLE, bleList, 25 - targetCount > 0 ? 25 - targetCount : 0, bleCount, 0);
-    for (int i = 0; i < bleCount && targetCount < 50; i++)
-        targetList[targetCount++] = bleList[i];
+
+    if (pendingAttack < ATK_COUNT && !isUniversalAttack(pendingAttack)) {
+        // Filter to only the type needed by the pending attack
+        TargetType needed = requiredTargetType(pendingAttack);
+        TARGETS.getSorted(needed, targetList, 50, targetCount, 0);
+    } else {
+        // No specific attack context — show APs + BLE (no STAs)
+        TARGETS.getSorted(TargetType::AP, targetList, 25, targetCount, 0);
+        int bleCount = 0;
+        Target* bleList[25] = {};
+        TARGETS.getSorted(TargetType::BLE, bleList, 25, bleCount, 0);
+        for (int i = 0; i < bleCount && targetCount < 50; i++)
+            targetList[targetCount++] = bleList[i];
+    }
 }
 
 void FireActivity::onExit() {
@@ -127,59 +150,69 @@ void FireActivity::onExit() {
 void FireActivity::buildAttackMenu() {
     availableCount = 0;
 
+    bool filtering = (target != nullptr);
+    TargetType ttype = target ? target->type : TargetType::AP;
+
     auto add = [this](AttackType t, const char* n, const char* d, bool avail) {
         if (availableCount < ATK_COUNT) {
             attacks[availableCount++] = {t, n, d, avail};
         }
     };
 
-    // --- Universal (no target needed) ---
-    add(ATK_BLE_SPAM, "BLE Spam",
-        "Apple/Google/Samsung/Windows flood",
-        true);
-    add(ATK_AIRTAG_SWARM, "AirTag Swarm",
-        "Spawn 20 fake FindMy tags",
-        true);
-    add(ATK_BEACON_FLOOD, "Beacon Flood",
-        "Spam 30 fake SSIDs",
-        true);
-    add(ATK_KARMA_AP, "Karma AP",
-        "Respond to nearby probe requests",
-        true);
+    auto show = [&](AttackType atk) -> bool {
+        if (isUniversalAttack(atk)) return true;
+        if (!filtering) return true;
+        return requiredTargetType(atk) == ttype;
+    };
 
-    // --- Targeted (need WiFi AP target) ---
+    // --- Universal ---
+    add(ATK_BLE_SPAM, "BLE Spam", "Apple/Google/Samsung/Windows flood", true);
+    add(ATK_AIRTAG_SWARM, "AirTag Swarm", "Spawn 20 fake FindMy tags", true);
+    add(ATK_BEACON_FLOOD, "Beacon Flood", "Spam 30 fake SSIDs", true);
+    add(ATK_KARMA_AP, "Karma AP", "Respond to nearby probe requests", true);
+
+    // --- WiFi AP targeted ---
     bool hasAp = target && target->type == TargetType::AP;
-    add(ATK_DEAUTH_BROADCAST, "Deauth Broadcast",
-        hasAp ? (target->pmf ? "BLOCKED — PMF" : "Disconnect all clients")
-              : "(select WiFi AP target)",
-        hasAp && !target->pmf);
-    add(ATK_DEAUTH_TARGETED, "Deauth Targeted",
-        hasAp ? "Disconnect specific client" : "(select WiFi AP target)",
-        hasAp && !target->pmf);
-    add(ATK_ROGUE_AP, "Rogue AP",
-        hasAp ? "Clone BSSID, auto-deauth per 802.11" : "(select WiFi AP target)",
-        hasAp);
-    add(ATK_HANDSHAKE_CAPTURE, "Handshake Capture",
-        hasAp ? "Deauth + capture 4-way EAPOL" : "(select WiFi AP target)",
-        hasAp && target->authType >= 2);
-    add(ATK_PMKID_HARVEST, "PMKID Harvest",
-        hasAp ? "Passive — no deauth needed" : "(select WiFi AP target)",
-        hasAp && target->authType >= 2);
-    add(ATK_EVIL_TWIN, "Evil Twin + Portal",
-        hasAp ? "Clone AP with captive portal" : "(select WiFi AP target)",
-        hasAp);
-    add(ATK_AUTH_FLOOD, "Auth Flood",
-        hasAp ? "Exhaust AP association table" : "(select WiFi AP target)",
-        hasAp);
+    if (show(ATK_DEAUTH_BROADCAST))
+        add(ATK_DEAUTH_BROADCAST, "Deauth Broadcast",
+            hasAp ? (target->pmf ? "BLOCKED - PMF" : "Disconnect all clients")
+                  : "(select WiFi AP target)",
+            hasAp && !target->pmf);
+    if (show(ATK_DEAUTH_TARGETED))
+        add(ATK_DEAUTH_TARGETED, "Deauth Targeted",
+            hasAp ? "Disconnect specific client" : "(select WiFi AP target)",
+            hasAp && !target->pmf);
+    if (show(ATK_ROGUE_AP))
+        add(ATK_ROGUE_AP, "Rogue AP",
+            hasAp ? "Clone BSSID, auto-deauth" : "(select WiFi AP target)",
+            hasAp);
+    if (show(ATK_HANDSHAKE_CAPTURE))
+        add(ATK_HANDSHAKE_CAPTURE, "Handshake Capture",
+            hasAp ? "Deauth + capture 4-way EAPOL" : "(select WiFi AP target)",
+            hasAp && target->authType >= 2);
+    if (show(ATK_PMKID_HARVEST))
+        add(ATK_PMKID_HARVEST, "PMKID Harvest",
+            hasAp ? "Passive - no deauth needed" : "(select WiFi AP target)",
+            hasAp && target->authType >= 2);
+    if (show(ATK_EVIL_TWIN))
+        add(ATK_EVIL_TWIN, "Evil Twin + Portal",
+            hasAp ? "Clone AP with captive portal" : "(select WiFi AP target)",
+            hasAp);
+    if (show(ATK_AUTH_FLOOD))
+        add(ATK_AUTH_FLOOD, "Auth Flood",
+            hasAp ? "Exhaust AP association table" : "(select WiFi AP target)",
+            hasAp);
 
     // --- BLE targeted ---
     bool hasBle = target && target->type == TargetType::BLE;
-    add(ATK_BLE_CLONE, "BLE Clone",
-        hasBle ? "Replay this device's BLE adverts" : "(select BLE target)",
-        hasBle);
-    add(ATK_BLE_ENUMERATE, "BLE Enumerate",
-        hasBle ? "Connect + dump GATT services" : "(select BLE target)",
-        hasBle);
+    if (show(ATK_BLE_CLONE))
+        add(ATK_BLE_CLONE, "BLE Clone",
+            hasBle ? "Replay this device's BLE adverts" : "(select BLE target)",
+            hasBle);
+    if (show(ATK_BLE_ENUMERATE))
+        add(ATK_BLE_ENUMERATE, "BLE Enumerate",
+            hasBle ? "Connect + dump GATT services" : "(select BLE target)",
+            hasBle);
 }
 
 // ---------------------------------------------------------------------------
@@ -880,8 +913,18 @@ void FireActivity::loop() {
                 target = targetList[targetIndex];
                 if (target) {
                     memcpy(targetMac, target->mac, 6);
-                    buildAttackMenu();  // rebuild with target context
-                    // If the attack that sent us here is now available, skip back to confirm
+                    buildAttackMenu();  // rebuild filtered to target type
+
+                    // Find the pending attack in the rebuilt menu
+                    attackIndex = 0;
+                    for (int i = 0; i < availableCount; i++) {
+                        if (attacks[i].type == pendingAttack) {
+                            attackIndex = i;
+                            break;
+                        }
+                    }
+                    pendingAttack = ATK_COUNT;
+
                     if (attackIndex < availableCount && attacks[attackIndex].available) {
                         state = CONFIRM;
                     } else {
@@ -891,7 +934,7 @@ void FireActivity::loop() {
                 }
             }
             if (mappedInput.wasReleased(MappedInputManager::Button::Back)) {
-                // Back to attack menu without target
+                pendingAttack = ATK_COUNT;
                 state = ATTACK_SELECT;
                 requestUpdate();
             }
@@ -913,11 +956,10 @@ void FireActivity::loop() {
             });
             if (mappedInput.wasReleased(MappedInputManager::Button::Confirm) && availableCount > 0) {
                 if (attacks[attackIndex].available) {
-                    // Attack is ready — go to confirm
                     state = CONFIRM;
                     requestUpdate();
                 } else {
-                    // Needs a target — go to target select, then come back
+                    pendingAttack = attacks[attackIndex].type;
                     state = TARGET_SELECT;
                     loadTargetList();
                     requestUpdate();
@@ -1015,9 +1057,16 @@ void FireActivity::renderTargetSelect() const {
     const auto pageWidth = renderer.getScreenWidth();
     const auto pageHeight = renderer.getScreenHeight();
 
+    const char* headerText = "FIRE — Select target";
+    if (pendingAttack < ATK_COUNT) {
+        if (requiredTargetType(pendingAttack) == TargetType::BLE)
+            headerText = "FIRE — Select BLE device";
+        else
+            headerText = "FIRE — Select WiFi AP";
+    }
     GUI.drawHeader(renderer,
         Rect{0, metrics.topPadding, pageWidth, metrics.headerHeight},
-        "FIRE — Select target");
+        headerText);
 
     const int contentTop = metrics.topPadding + metrics.headerHeight + metrics.verticalSpacing;
     const int contentHeight = pageHeight - contentTop - metrics.buttonHintsHeight - metrics.verticalSpacing;
@@ -1043,10 +1092,12 @@ void FireActivity::renderTargetSelect() const {
             },
             [this](int i) -> std::string {
                 if (!targetList[i]) return "";
-                char buf[48];
-                snprintf(buf, sizeof(buf), "%02X:%02X:%02X:%02X:%02X:%02X  RSSI %d",
+                bool stale = !TARGETS.isSeenThisSession(targetList[i]);
+                char buf[56];
+                snprintf(buf, sizeof(buf), "%02X:%02X:%02X:%02X:%02X:%02X  %s%d",
                          targetList[i]->mac[0], targetList[i]->mac[1], targetList[i]->mac[2],
                          targetList[i]->mac[3], targetList[i]->mac[4], targetList[i]->mac[5],
+                         stale ? "OLD " : "RSSI ",
                          (int)targetList[i]->rssi);
                 return std::string(buf);
             });

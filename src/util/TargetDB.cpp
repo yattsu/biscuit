@@ -45,6 +45,7 @@ void TargetDB::evictOldest() {
     const int remaining = cacheCount - oldest - 1;
     if (remaining > 0) {
         memmove(&cache[oldest], &cache[oldest + 1], remaining * sizeof(Target));
+        memmove(&seenThisSession[oldest], &seenThisSession[oldest + 1], remaining * sizeof(bool));
     }
     --cacheCount;
 }
@@ -52,6 +53,12 @@ void TargetDB::evictOldest() {
 // ---------------------------------------------------------------------------
 // Core operations
 // ---------------------------------------------------------------------------
+
+bool TargetDB::isSeenThisSession(const Target* t) const {
+    if (!t) return false;
+    int idx = static_cast<int>(t - &cache[0]);
+    return (idx >= 0 && idx < cacheCount) && seenThisSession[idx];
+}
 
 Target* TargetDB::findByMac(const uint8_t mac[6]) {
     int idx = findCacheIndex(mac);
@@ -71,6 +78,7 @@ void TargetDB::addOrUpdate(const Target& t) {
         // Always update rssi and lastSeen
         existing.rssi = t.rssi;
         existing.lastSeen = t.lastSeen;
+        seenThisSession[idx] = true;
 
         // Update string/value fields only if the new value is non-empty/non-zero
         if (t.ssid[0] != '\0') {
@@ -127,6 +135,7 @@ void TargetDB::addOrUpdate(const Target& t) {
         }
         cache[cacheCount] = t;
         ++cacheCount;
+        seenThisSession[cacheCount - 1] = true;
     }
 
     dirty = true;
@@ -139,6 +148,7 @@ void TargetDB::remove(const uint8_t mac[6]) {
     const int remaining = cacheCount - idx - 1;
     if (remaining > 0) {
         memmove(&cache[idx], &cache[idx + 1], remaining * sizeof(Target));
+        memmove(&seenThisSession[idx], &seenThisSession[idx + 1], remaining * sizeof(bool));
     }
     --cacheCount;
     dirty = true;
@@ -187,8 +197,16 @@ void TargetDB::getSorted(TargetType type, Target** out, int maxOut, int& outCoun
         while (j >= 0) {
             const Target* a = out[j];
             if (sortBy == 0) {
-                // lastSeen descending
-                shouldSwap = a->lastSeen < key->lastSeen;
+                // Live targets first, then lastSeen descending within each group
+                int ai = static_cast<int>(a - cache);
+                int ki = static_cast<int>(key - cache);
+                bool aLive = (ai >= 0 && ai < cacheCount) && seenThisSession[ai];
+                bool kLive = (ki >= 0 && ki < cacheCount) && seenThisSession[ki];
+                if (aLive != kLive) {
+                    shouldSwap = kLive && !aLive;
+                } else {
+                    shouldSwap = a->lastSeen < key->lastSeen;
+                }
             } else if (sortBy == 1) {
                 // rssi descending
                 shouldSwap = a->rssi < key->rssi;
@@ -245,6 +263,7 @@ void TargetDB::loadFromSD() {
 void TargetDB::loadCache() {
     cacheCount = 0;
     dirty = false;
+    memset(seenThisSession, 0, sizeof(seenThisSession));
     Storage.mkdir("/biscuit");
     loadFromSD();
 }
@@ -285,6 +304,7 @@ void TargetDB::appendToSD(const Target& t) {
 
 void TargetDB::clear() {
     memset(cache, 0, sizeof(cache));
+    memset(seenThisSession, 0, sizeof(seenThisSession));
     cacheCount = 0;
     dirty = false;
 
