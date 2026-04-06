@@ -14,9 +14,9 @@ class AppsMenuActivity final : public Activity {
 
  private:
   int selectorIndex = 0;
-  static constexpr int ITEM_COUNT = 6;
+  static constexpr int ITEM_COUNT = 8;
   static constexpr int COLS = 2;
-  static constexpr int ROWS = 3;
+  static constexpr int ROWS = 4;
 
   // Grid navigation
   int getRow() const { return selectorIndex / COLS; }

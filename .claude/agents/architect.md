@@ -47,13 +47,15 @@ WHEN PLANNING:
 
 MENU STRUCTURE (current):
 ```
-Apps Menu (AppsMenuActivity, 6 categories):
-├── Network: WifiConnect, WifiScanner, HostScanner, Ping, DnsLookup, HttpClient, MdnsBrowser, BleScanner, Wardriving
-├── Wireless Ops: PacketMonitor, ProbeSniffer, BleProximity, CredentialViewer, MacChanger, ApCloner, NetworkMonitor, BeaconTest, WifiTest, CaptivePortal, BleBeacon, AirTagTest, BleKeyboard
-├── Tools: Clock, Calculator, QrGenerator, MorseCode, UnitConverter, PasswordManager, SdFileBrowser, EtchASketch
-├── Games: Casino, Minesweeper, Sudoku, Chess, Snake, Tetris, Maze, DiceRoller, GameOfLife, Voronoi, MatrixRain
-├── System: TaskManager, BatteryMonitor, DeviceInfo, BackgroundManager
-└── Reader: Open Book, Recent Books, Browse Files, OPDS Browser
+Apps Menu (AppsMenuActivity, 8 categories):
+├── Network (7): WifiConnect, WifiScanner, HostScanner, Ping, DnsLookup, HttpClient, MdnsBrowser
+├── Recon (18): BleScanner, PacketMonitor, ProbeSniffer, Wardriving, CrowdDensity, DeviceFingerprint, VendorOui, ApHistory, NetworkChange, PerimeterWatch, BleProximity, CredentialViewer, +6 manual wireless
+├── Security (9): TrackerDetector, Sweep, NetworkMonitor, Emergency, QuickWipe, SecurityPin, RfSilence, ScreenDecoy, MacChanger
+├── Comms (5): MeshChat, SsidChannel, BleContactExchange, DeadDrop, BulletinBoard
+├── Tools (18): Totp, MedicalCard, Clock, Calculator, PasswordManager, QrGenerator, MorseCode, UnitConverter, Cipher, OtpGenerator, SdFileBrowser, EventLogger, Flashcard, HabitTracker, BreadcrumbTrail, VehicleFinder, TransitAlert, EtchASketch
+├── Games (11): Casino, Minesweeper, Sudoku, Chess, Snake, Tetris, Maze, DiceRoller, GameOfLife, Voronoi, MatrixRain
+├── System (8): Settings, FileTransfer, TaskManager, Battery, DeviceInfo, Background, Automation, ReadingStats
+└── Reader (4): OpenBook, RecentBooks, BrowseFiles, OpdsBrowser
 ```
 
 SD CARD STRUCTURE:

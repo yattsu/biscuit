@@ -100,7 +100,11 @@ void AppCategoryActivity::render(RenderLock&&) {
 
   GUI.drawList(
       renderer, Rect{0, listTop, pageWidth, listHeight}, count, selectorIndex,
-      [this](int index) -> std::string { return entries[index].nameStrId; }, nullptr, nullptr);
+      [this](int index) -> std::string { return entries[index].nameStrId; },
+      [this](int index) -> std::string {
+          return entries[index].description ? std::string(entries[index].description) : "";
+      },
+      nullptr);
 
   // === Button hints ===
   const auto labels = mappedInput.mapLabels(tr(STR_BACK), tr(STR_SELECT), tr(STR_DIR_UP), tr(STR_DIR_DOWN));

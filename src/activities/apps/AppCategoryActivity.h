@@ -15,6 +15,7 @@ class AppCategoryActivity final : public Activity {
  public:
   struct AppEntry {
     const char* nameStrId;  // will be resolved via tr() at render time
+    const char* description;  // one-line description shown as subtitle
     std::function<std::unique_ptr<Activity>(GfxRenderer&, MappedInputManager&)> factory;
   };
 
