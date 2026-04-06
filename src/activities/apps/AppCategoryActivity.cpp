@@ -106,7 +106,7 @@ void AppCategoryActivity::loop() {
       return;
     }
     backPressedHere = false;
-    if (heldTime >= 1500) {
+    if (heldTime >= 2500) {
       onGoHome();  // Long-press: go straight to dashboard
     } else {
       finish();    // Short press: go back one level

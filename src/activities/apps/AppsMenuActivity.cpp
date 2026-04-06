@@ -468,14 +468,14 @@ void AppsMenuActivity::drawTile(int index, int x, int y, int w, int h, bool sele
   int appCount = 0;
 
   switch (index) {
-    case 0: name = "Network";   subtitle = "Connect & diagnose"; appCount = 7;  break;
-    case 1: name = "Recon";     subtitle = "Scan & monitor";     appCount = 21; break;
-    case 2: name = "Security";  subtitle = "Defend & protect";   appCount = 9;  break;
-    case 3: name = "Comms";     subtitle = "Chat & exchange";    appCount = 5;  break;
-    case 4: name = "Tools";     subtitle = "Utilities";          appCount = 22; break;
-    case 5: name = "Games";     subtitle = "Entertainment";      appCount = 11; break;
-    case 6: name = "System";    subtitle = "Device & settings";  appCount = 9;  break;
-    case 7: name = "Reader";    subtitle = "Books & OPDS";       appCount = 4;  break;
+    case 0: name = "Network";   subtitle = "Connect & diagnose"; appCount = 8;  break;
+    case 1: name = "Recon";     subtitle = "Scan & monitor";     appCount = 22; break;
+    case 2: name = "Security";  subtitle = "Defend & protect";   appCount = 10; break;
+    case 3: name = "Comms";     subtitle = "Chat & exchange";    appCount = 6;  break;
+    case 4: name = "Tools";     subtitle = "Utilities";          appCount = 23; break;
+    case 5: name = "Games";     subtitle = "Entertainment";      appCount = 12; break;
+    case 6: name = "System";    subtitle = "Device & settings";  appCount = 10; break;
+    case 7: name = "Reader";    subtitle = "Books & OPDS";       appCount = 5;  break;
   }
 
   renderer.drawText(UI_12_FONT_ID, x + pad, nameY, name, !selected, EpdFontFamily::BOLD);
