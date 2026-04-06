@@ -176,36 +176,31 @@ void AppsMenuActivity::loop() {
     std::unique_ptr<Activity> app;
     switch (selectorIndex) {
       case 0: {
-        // NETWORK
+        // WIRELESS (merged Network + Recon)
         std::vector<AppCategoryActivity::AppEntry> e = {
-            {tr(STR_WIFI_CONNECT), "Join a WiFi network", UIIcon::Wifi, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<WifiConnectActivity>(r, m); }},
+            AppCategoryActivity::SectionHeader("WIFI SCANNING"),
             {tr(STR_WIFI_SCANNER), "Scan APs — list/signal/channel", UIIcon::Wifi, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<WifiScannerActivity>(r, m); }},
+            {"Wardriving", "Log APs with signal strength", UIIcon::Wifi, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<WardrivingActivity>(r, m); }},
+            {"Probe Sniffer", "Capture WiFi probe requests", UIIcon::Wifi, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<ProbeSnifferActivity>(r, m); }},
+            {tr(STR_PACKET_MONITOR), "Monitor WiFi frames + PCAP", UIIcon::Wifi, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<PacketMonitorActivity>(r, m); }},
+            AppCategoryActivity::SectionHeader("WIFI TOOLS"),
+            {tr(STR_WIFI_CONNECT), "Join a WiFi network", UIIcon::Wifi, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<WifiConnectActivity>(r, m); }},
             {tr(STR_HOST_SCANNER), "Find devices on local network", UIIcon::Wifi, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<HostScannerActivity>(r, m); }},
             {tr(STR_PING_TOOL), "Ping a host or IP address", UIIcon::Wifi, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<PingActivity>(r, m); }},
             {tr(STR_DNS_LOOKUP), "Resolve domain names", UIIcon::Wifi, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<DnsLookupActivity>(r, m); }},
             {"HTTP Client", "Send GET/POST requests", UIIcon::Transfer, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<HttpClientActivity>(r, m); }},
             {"mDNS Browser", "Discover local services", UIIcon::Wifi, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<MdnsBrowserActivity>(r, m); }},
-        };
-        app = std::make_unique<AppCategoryActivity>(renderer, mappedInput, "Network", std::move(e), false, 0);
-        break;
-      }
-      case 1: {
-        // RECON
-        std::vector<AppCategoryActivity::AppEntry> e = {
-            AppCategoryActivity::SectionHeader("SCANNING"),
+            {"Network Change", "Diff snapshots of nearby devices", UIIcon::File, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<NetworkChangeActivity>(r, m); }},
+            {"AP Cloner", "Clone a WiFi AP (open, same channel)", UIIcon::Wifi, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<ApClonerActivity>(r, m); }},
+            AppCategoryActivity::SectionHeader("BLE"),
             {tr(STR_BLE_SCANNER), "Scan BLE devices + services", UIIcon::Hotspot, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<BleScannerActivity>(r, m); }},
-            {tr(STR_PACKET_MONITOR), "Monitor WiFi frames + PCAP", UIIcon::Wifi, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<PacketMonitorActivity>(r, m); }},
-            {"Probe Sniffer", "Capture WiFi probe requests", UIIcon::Wifi, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<ProbeSnifferActivity>(r, m); }},
-            {"Wardriving", "Log APs with signal strength", UIIcon::Wifi, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<WardrivingActivity>(r, m); }},
-            AppCategoryActivity::SectionHeader("INTELLIGENCE"),
+            {"BLE Proximity", "Track BLE signal strength", UIIcon::Hotspot, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<BleProximityActivity>(r, m); }},
+            AppCategoryActivity::SectionHeader("ANALYSIS"),
             {"Crowd Density", "Estimate people nearby via probes", UIIcon::Wifi, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<CrowdDensityActivity>(r, m); }},
             {"Device Fingerprint", "Identify device OS from probes", UIIcon::File, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<DeviceFingerprinterActivity>(r, m); }},
             {"Vendor Lookup", "Identify device maker by MAC", UIIcon::Library, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<VendorOuiActivity>(r, m); }},
-            AppCategoryActivity::SectionHeader("MONITORING"),
             {"AP History", "Log APs over time to SD", UIIcon::Recent, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<ApHistoryLoggerActivity>(r, m); }},
-            {"Network Change", "Diff snapshots of nearby devices", UIIcon::File, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<NetworkChangeActivity>(r, m); }},
             {"Perimeter Watch", "Alert on new devices in area", UIIcon::Hotspot, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<PerimeterWatchActivity>(r, m); }},
-            {"BLE Proximity", "Track BLE signal strength", UIIcon::Hotspot, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<BleProximityActivity>(r, m); }},
             {"Credential Viewer", "View captured portal credentials", UIIcon::Text, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<CredentialViewerActivity>(r, m); }},
             AppCategoryActivity::SectionHeader("WIRELESS TESTING"),
             {tr(STR_BEACON_TEST), "Broadcast wireless beacons", UIIcon::Hotspot, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<BeaconTestActivity>(r, m); }},
@@ -216,12 +211,11 @@ void AppsMenuActivity::loop() {
             {tr(STR_AIRTAG_TEST), "Device location testing", UIIcon::Hotspot, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<AirTagTestActivity>(r, m); }},
             {tr(STR_BLE_KEYBOARD), "HID keyboard emulation", UIIcon::Transfer, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<BleKeyboardActivity>(r, m); }},
             {"USB Keyboard", "Wired DuckyScript via USB-C", UIIcon::Transfer, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<UsbHidActivity>(r, m); }},
-            {"AP Cloner", "Clone a WiFi AP (open, same channel)", UIIcon::Wifi, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<ApClonerActivity>(r, m); }},
         };
-        app = std::make_unique<AppCategoryActivity>(renderer, mappedInput, "Recon", std::move(e), true, 1);
+        app = std::make_unique<AppCategoryActivity>(renderer, mappedInput, "Wireless", std::move(e), true, 0);
         break;
       }
-      case 2: {
+      case 1: {
         // SECURITY
         std::vector<AppCategoryActivity::AppEntry> e = {
             {"Tracker Detector", "Detect AirTags following you", UIIcon::Hotspot, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<TrackerDetectorActivity>(r, m); }},
@@ -234,22 +228,10 @@ void AppsMenuActivity::loop() {
             {"Screen Decoy", "Fake screen to hide activity", UIIcon::File, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<ScreenDecoyActivity>(r, m); }},
             {"MAC Changer", "Randomize WiFi/BLE MAC address", UIIcon::Settings, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<MacChangerActivity>(r, m); }},
         };
-        app = std::make_unique<AppCategoryActivity>(renderer, mappedInput, "Security", std::move(e), false, 2);
+        app = std::make_unique<AppCategoryActivity>(renderer, mappedInput, "Security", std::move(e), false, 1);
         break;
       }
-      case 3: {
-        // COMMS
-        std::vector<AppCategoryActivity::AppEntry> e = {
-            {"Mesh Chat", "Text chat via ESP-NOW, no WiFi needed", UIIcon::Transfer, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<MeshChatActivity>(r, m); }},
-            {"SSID Channel", "Hide messages in WiFi network names", UIIcon::Wifi, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<SsidChannelActivity>(r, m); }},
-            {"Contact Exchange", "Swap contact cards via BLE", UIIcon::Transfer, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<BleContactExchangeActivity>(r, m); }},
-            {"Dead Drop", "Temporary AP for anonymous file swap", UIIcon::Hotspot, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<DeadDropActivity>(r, m); }},
-            {"Bulletin Board", "Local anonymous message board", UIIcon::Hotspot, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<BulletinBoardActivity>(r, m); }},
-        };
-        app = std::make_unique<AppCategoryActivity>(renderer, mappedInput, "Comms", std::move(e), false, 3);
-        break;
-      }
-      case 4: {
+      case 2: {
         // TOOLS
         std::vector<AppCategoryActivity::AppEntry> e = {
             AppCategoryActivity::SectionHeader("SECURITY & AUTH"),
@@ -270,20 +252,15 @@ void AppsMenuActivity::loop() {
             {"OTP Generator", "One-time pad random numbers", UIIcon::Text, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<OtpGeneratorActivity>(r, m); }},
             {"File Browser", "Browse files on SD card", UIIcon::Folder, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<SdFileBrowserActivity>(r, m); }},
             AppCategoryActivity::SectionHeader("TRACKING & NOTES"),
-            {"Event Logger", "Timestamped notes with location", UIIcon::Text, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<EventLoggerActivity>(r, m); }},
             {"Flashcards", "Study decks from SD (CSV)", UIIcon::Book, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<FlashcardActivity>(r, m); }},
             {"Habit Tracker", "Daily habits with streaks", UIIcon::Recent, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<HabitTrackerActivity>(r, m); }, false, []() -> bool { return Storage.exists("/biscuit/habits.dat"); }},
-            AppCategoryActivity::SectionHeader("NAVIGATION"),
-            {"Breadcrumb Trail", "Retrace your path via WiFi", UIIcon::Wifi, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<BreadcrumbTrailActivity>(r, m); }},
-            {"Vehicle Finder", "Find parked car via WiFi", UIIcon::Wifi, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<VehicleFinderActivity>(r, m); }},
-            {"Transit Alert", "Alert when nearing your stop", UIIcon::Recent, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<TransitAlertActivity>(r, m); }},
             AppCategoryActivity::SectionHeader("CREATIVE"),
             {tr(STR_ETCH_A_SKETCH), "Draw on the e-ink screen", UIIcon::Image, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<EtchASketchActivity>(r, m); }},
         };
-        app = std::make_unique<AppCategoryActivity>(renderer, mappedInput, "Tools", std::move(e), false, 4);
+        app = std::make_unique<AppCategoryActivity>(renderer, mappedInput, "Tools", std::move(e), false, 2);
         break;
       }
-      case 5: {
+      case 3: {
         // GAMES
         std::vector<AppCategoryActivity::AppEntry> e = {
             {"Casino", "Slots, blackjack, roulette + lootbox", UIIcon::File, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<CasinoActivity>(r, m); }, false, []() -> bool { return Storage.exists("/biscuit/casino.dat"); }},
@@ -298,7 +275,30 @@ void AppsMenuActivity::loop() {
             {tr(STR_VORONOI), "Generate Voronoi patterns", UIIcon::File, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<VoronoiActivity>(r, m); }},
             {"Matrix Rain", "The Matrix digital rain effect", UIIcon::File, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<MatrixRainActivity>(r, m); }},
         };
-        app = std::make_unique<AppCategoryActivity>(renderer, mappedInput, tr(STR_GAMES), std::move(e), false, 5);
+        app = std::make_unique<AppCategoryActivity>(renderer, mappedInput, tr(STR_GAMES), std::move(e), false, 3);
+        break;
+      }
+      case 4: {
+        // COMMS
+        std::vector<AppCategoryActivity::AppEntry> e = {
+            {"Mesh Chat", "Text chat via ESP-NOW, no WiFi needed", UIIcon::Transfer, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<MeshChatActivity>(r, m); }},
+            {"SSID Channel", "Hide messages in WiFi network names", UIIcon::Wifi, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<SsidChannelActivity>(r, m); }},
+            {"Contact Exchange", "Swap contact cards via BLE", UIIcon::Transfer, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<BleContactExchangeActivity>(r, m); }},
+            {"Dead Drop", "Temporary AP for anonymous file swap", UIIcon::Hotspot, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<DeadDropActivity>(r, m); }},
+            {"Bulletin Board", "Local anonymous message board", UIIcon::Hotspot, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<BulletinBoardActivity>(r, m); }},
+        };
+        app = std::make_unique<AppCategoryActivity>(renderer, mappedInput, "Comms", std::move(e), false, 4);
+        break;
+      }
+      case 5: {
+        // URBAN
+        std::vector<AppCategoryActivity::AppEntry> e = {
+            {"Breadcrumb Trail", "Retrace your path via WiFi", UIIcon::Wifi, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<BreadcrumbTrailActivity>(r, m); }},
+            {"Vehicle Finder", "Find parked car via WiFi", UIIcon::Wifi, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<VehicleFinderActivity>(r, m); }},
+            {"Transit Alert", "Alert when nearing your stop", UIIcon::Recent, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<TransitAlertActivity>(r, m); }},
+            {"Event Logger", "Timestamped notes with location", UIIcon::Text, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<EventLoggerActivity>(r, m); }},
+        };
+        app = std::make_unique<AppCategoryActivity>(renderer, mappedInput, "Urban", std::move(e), false, 5);
         break;
       }
       case 6: {
@@ -473,14 +473,14 @@ void AppsMenuActivity::drawTile(int index, int x, int y, int w, int h, bool sele
   int appCount = 0;
 
   switch (index) {
-    case 0: name = "Network";   subtitle = "Connect & diagnose"; appCount = 8;  break;
-    case 1: name = "Recon";     subtitle = "Scan & monitor";     appCount = 22; break;
-    case 2: name = "Security";  subtitle = "Defend & protect";   appCount = 10; break;
-    case 3: name = "Comms";     subtitle = "Chat & exchange";    appCount = 6;  break;
-    case 4: name = "Tools";     subtitle = "Utilities";          appCount = 23; break;
-    case 5: name = "Games";     subtitle = "Entertainment";      appCount = 12; break;
-    case 6: name = "System";    subtitle = "Device & settings";  appCount = 10; break;
-    case 7: name = "Reader";    subtitle = "Books & OPDS";       appCount = 5;  break;
+    case 0: name = "Wireless";  subtitle = "WiFi, BLE & recon";  appCount = 28; break;
+    case 1: name = "Security";  subtitle = "Defend & protect";   appCount = 9;  break;
+    case 2: name = "Tools";     subtitle = "Utilities";          appCount = 18; break;
+    case 3: name = "Games";     subtitle = "Entertainment";      appCount = 11; break;
+    case 4: name = "Comms";     subtitle = "Chat & exchange";    appCount = 5;  break;
+    case 5: name = "Urban";     subtitle = "Navigate & track";   appCount = 4;  break;
+    case 6: name = "System";    subtitle = "Device & settings";  appCount = 9;  break;
+    case 7: name = "Reader";    subtitle = "Books & OPDS";       appCount = 4;  break;
   }
 
   renderer.drawText(UI_12_FONT_ID, x + pad, nameY, name, !selected, EpdFontFamily::BOLD);
@@ -498,8 +498,8 @@ void AppsMenuActivity::drawTile(int index, int x, int y, int w, int h, bool sele
   int badge = 0;
   bool showBang = false;
   switch (index) {
-    case 1: badge = badgeRecon; break;
-    case 2: showBang = (badgeSecurity < 0); break;
+    case 0: badge = badgeRecon; break;
+    case 1: showBang = (badgeSecurity < 0); break;
     case 6: badge = badgeSystem; break;
   }
 
@@ -526,7 +526,7 @@ void AppsMenuActivity::drawTile(int index, int x, int y, int w, int h, bool sele
       case 0:
         snprintf(statusStr, sizeof(statusStr), wifiConnected ? "WiFi: connected" : "WiFi: off");
         break;
-      case 2:
+      case 1:
         snprintf(statusStr, sizeof(statusStr), "RF: %s", wifiConnected ? "active" : "silent");
         break;
       case 6:

@@ -47,15 +47,15 @@ WHEN PLANNING:
 
 MENU STRUCTURE (current):
 ```
-Apps Menu (AppsMenuActivity, 8 categories):
-├── Network (8): WifiConnect, WifiScanner, HostScanner, Ping, DnsLookup, HttpClient, MdnsBrowser, +1
-├── Recon (22): BleScanner, PacketMonitor, ProbeSniffer, Wardriving, CrowdDensity, DeviceFingerprint, VendorOui, ApHistory, NetworkChange, PerimeterWatch, BleProximity, CredentialViewer, BleSpam, UsbHid, ApCloner, +6 manual wireless, +section headers
-├── Security (10): TrackerDetector, Sweep, NetworkMonitor, Emergency, QuickWipe, SecurityPin, RfSilence, ScreenDecoy, MacChanger, +1
-├── Comms (6): MeshChat, SsidChannel, BleContactExchange, DeadDrop, BulletinBoard, +1
-├── Tools (23): Totp, MedicalCard, PasswordManager, Clock, Countdown, Calculator, QrGenerator, Barcode, KeyCopier, WifiCreds, MorseCode, UnitConverter, Cipher, OtpGenerator, SdFileBrowser, EventLogger, Flashcard, HabitTracker, BreadcrumbTrail, VehicleFinder, TransitAlert, EtchASketch, +section headers
-├── Games (12): Casino, Minesweeper, Sudoku, Chess, Snake, Tetris, Maze, DiceRoller, GameOfLife, Voronoi, MatrixRain, +1
-├── System (10): Settings, FileTransfer, TaskManager, Battery, DeviceInfo, Background, Automation, ReadingStats, UsbMassStorage, +1
-└── Reader (5): OpenBook, RecentBooks, BrowseFiles, OpdsBrowser, +1
+Apps Menu (AppsMenuActivity, 8 categories, 2×4 grid):
+├── Wireless (28): WifiScanner, Wardriving, ProbeSniffer, PacketMonitor, WifiConnect, HostScanner, Ping, DnsLookup, HttpClient, MdnsBrowser, NetworkChange, ApCloner, BleScanner, BleProximity, CrowdDensity, DeviceFingerprint, VendorOui, ApHistory, PerimeterWatch, CredentialViewer, BleSpam, UsbHid, +6 manual wireless, +section headers
+├── Security (9): TrackerDetector, Sweep, NetworkMonitor, Emergency, QuickWipe, SecurityPin, RfSilence, ScreenDecoy, MacChanger
+├── Tools (18): Totp, MedicalCard, PasswordManager, Clock, Countdown, Calculator, QrGenerator, Barcode, KeyCopier, WifiCreds, MorseCode, UnitConverter, Cipher, OtpGenerator, SdFileBrowser, Flashcard, HabitTracker, EtchASketch, +section headers
+├── Games (11): Casino, Minesweeper, Sudoku, Chess, Snake, Tetris, Maze, DiceRoller, GameOfLife, Voronoi, MatrixRain
+├── Comms (5): MeshChat, SsidChannel, BleContactExchange, DeadDrop, BulletinBoard
+├── Urban (4): BreadcrumbTrail, VehicleFinder, TransitAlert, EventLogger
+├── System (9): Settings, FileTransfer, TaskManager, Battery, DeviceInfo, Background, Automation, ReadingStats, UsbMassStorage
+└── Reader (4): OpenBook, RecentBooks, BrowseFiles, OpdsBrowser
 ```
 
 SD CARD STRUCTURE:
