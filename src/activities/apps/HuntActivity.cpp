@@ -23,18 +23,18 @@ static const char* authTypeName(uint8_t authType) {
 
 static const char* targetTypeName(TargetType type) {
     switch (type) {
-        case TargetType::WIFI_AP:     return "WiFi AP";
-        case TargetType::WIFI_CLIENT: return "WiFi Client";
-        case TargetType::BLE_DEVICE:  return "BLE Device";
+        case TargetType::AP:     return "WiFi AP";
+        case TargetType::STA: return "WiFi Client";
+        case TargetType::BLE:  return "BLE Device";
         default:                      return "Unknown";
     }
 }
 
 static const char* targetTypePrefix(TargetType type) {
     switch (type) {
-        case TargetType::WIFI_AP:     return "[AP] ";
-        case TargetType::WIFI_CLIENT: return "[CL] ";
-        case TargetType::BLE_DEVICE:  return "[BT] ";
+        case TargetType::AP:     return "[AP] ";
+        case TargetType::STA: return "[CL] ";
+        case TargetType::BLE:  return "[BT] ";
         default:                      return "[ ] ";
     }
 }
@@ -73,14 +73,14 @@ void HuntActivity::setTarget(const uint8_t mac[6]) {
 void HuntActivity::loadTargetList() {
     targetCount = 0;
     int c1 = 0;
-    TARGETS.getSorted(TargetType::WIFI_AP, targetList, 50, c1, 0);
+    TARGETS.getSorted(TargetType::AP, targetList, 50, c1, 0);
     targetCount = c1;
 
     Target* temp[50];
     int c2 = 0;
     int remaining = 50 - targetCount;
     if (remaining > 0) {
-        TARGETS.getSorted(TargetType::WIFI_CLIENT, temp, remaining, c2, 0);
+        TARGETS.getSorted(TargetType::STA, temp, remaining, c2, 0);
         for (int i = 0; i < c2 && targetCount < 50; i++) {
             targetList[targetCount++] = temp[i];
         }
@@ -89,7 +89,7 @@ void HuntActivity::loadTargetList() {
     int c3 = 0;
     remaining = 50 - targetCount;
     if (remaining > 0) {
-        TARGETS.getSorted(TargetType::BLE_DEVICE, temp, remaining, c3, 0);
+        TARGETS.getSorted(TargetType::BLE, temp, remaining, c3, 0);
         for (int i = 0; i < c3 && targetCount < 50; i++) {
             targetList[targetCount++] = temp[i];
         }
@@ -125,7 +125,7 @@ void HuntActivity::analyzeCapabilities() {
         }
     };
 
-    if (current->type == TargetType::WIFI_AP) {
+    if (current->type == TargetType::AP) {
         add("Handshake capture",
             current->pmf ? "PMF enabled — may fail" : "No PMF — feasible",
             !current->pmf);
@@ -143,7 +143,7 @@ void HuntActivity::analyzeCapabilities() {
                 "WPS enabled — potential weakness",
                 true);
         }
-    } else if (current->type == TargetType::WIFI_CLIENT) {
+    } else if (current->type == TargetType::STA) {
         add("Probe response",
             current->probeCount > 0 ? "Has probed SSIDs — feasible" : "No probes seen",
             current->probeCount > 0);
@@ -153,7 +153,7 @@ void HuntActivity::analyzeCapabilities() {
         add("AP association spoof",
             "Respond as known AP to client",
             current->probeCount > 0);
-    } else if (current->type == TargetType::BLE_DEVICE) {
+    } else if (current->type == TargetType::BLE) {
         add("Clone advertisement",
             "Copy BLE broadcast data",
             true);
@@ -449,7 +449,7 @@ void HuntActivity::renderProfile() const {
     }
 
     // --- Type-specific fields ---
-    if (current->type == TargetType::WIFI_AP) {
+    if (current->type == TargetType::AP) {
         if (current->ssid[0] != '\0') {
             snprintf(line, sizeof(line), "SSID: \"%s\"", current->ssid);
             renderer.drawText(UI_10_FONT_ID, x, y, line); y += lh;
@@ -473,7 +473,7 @@ void HuntActivity::renderProfile() const {
             renderer.drawText(UI_10_FONT_ID, x, y, line); y += lh;
         }
 
-    } else if (current->type == TargetType::WIFI_CLIENT) {
+    } else if (current->type == TargetType::STA) {
         if (current->ssid[0] != '\0') {
             snprintf(line, sizeof(line), "Assoc AP: \"%s\"", current->ssid);
             renderer.drawText(UI_10_FONT_ID, x, y, line); y += lh;
@@ -486,7 +486,7 @@ void HuntActivity::renderProfile() const {
             renderer.drawText(UI_10_FONT_ID, x, y, line); y += lh;
         }
 
-    } else if (current->type == TargetType::BLE_DEVICE) {
+    } else if (current->type == TargetType::BLE) {
         if (current->name[0] != '\0') {
             snprintf(line, sizeof(line), "Name: \"%s\"", current->name);
             renderer.drawText(UI_10_FONT_ID, x, y, line); y += lh;

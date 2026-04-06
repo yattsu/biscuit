@@ -126,12 +126,13 @@ void ScanActivity::processRingBuffer() {
 
 static void harvestBleResults() {
     BLEScan* scan = BLEDevice::getScan();
-    BLEScanResults results = scan->getResults();
-    const int count = results.getCount();
+    BLEScanResults* results = scan->getResults();
+    if (!results) return;
+    const int count = results->getCount();
     for (int i = 0; i < count; i++) {
-        BLEAdvertisedDevice d = results.getDevice(i);
+        BLEAdvertisedDevice d = results->getDevice(i);
         Target t;
-        t.type = TargetType::BLE_DEVICE;
+        t.type = TargetType::BLE;
         const uint8_t* addr = d.getAddress().getNative();
         memcpy(t.mac, addr, 6);
         if (d.haveName()) {
@@ -151,9 +152,9 @@ static void harvestBleResults() {
 // ---------------------------------------------------------------------------
 
 void ScanActivity::updateStats() {
-    totalAps     = TARGETS.countByType(TargetType::WIFI_AP);
-    totalClients = TARGETS.countByType(TargetType::WIFI_CLIENT);
-    totalBle     = TARGETS.countByType(TargetType::BLE_DEVICE);
+    totalAps     = TARGETS.countByType(TargetType::AP);
+    totalClients = TARGETS.countByType(TargetType::STA);
+    totalBle     = TARGETS.countByType(TargetType::BLE);
 }
 
 // ---------------------------------------------------------------------------
@@ -164,12 +165,12 @@ void ScanActivity::refreshBrowseList() {
     browseCount = 0;
 
     if (filter == ALL) {
-        TARGETS.getSorted(TargetType::WIFI_AP, browseList, 50, browseCount, 0);
+        TARGETS.getSorted(TargetType::AP, browseList, 50, browseCount, 0);
         int more = 0;
         Target* temp[50] = {};
         int room = 50 - browseCount;
         if (room > 0) {
-            TARGETS.getSorted(TargetType::WIFI_CLIENT, temp, room, more, 0);
+            TARGETS.getSorted(TargetType::STA, temp, room, more, 0);
             for (int i = 0; i < more && browseCount < 50; i++) {
                 browseList[browseCount++] = temp[i];
             }
@@ -177,15 +178,15 @@ void ScanActivity::refreshBrowseList() {
         more = 0;
         room = 50 - browseCount;
         if (room > 0) {
-            TARGETS.getSorted(TargetType::BLE_DEVICE, temp, room, more, 0);
+            TARGETS.getSorted(TargetType::BLE, temp, room, more, 0);
             for (int i = 0; i < more && browseCount < 50; i++) {
                 browseList[browseCount++] = temp[i];
             }
         }
     } else {
-        TargetType tt = (filter == WIFI_APS)     ? TargetType::WIFI_AP
-                      : (filter == WIFI_CLIENTS)  ? TargetType::WIFI_CLIENT
-                                                  : TargetType::BLE_DEVICE;
+        TargetType tt = (filter == WIFI_APS)     ? TargetType::AP
+                      : (filter == WIFI_CLIENTS)  ? TargetType::STA
+                                                  : TargetType::BLE;
         TARGETS.getSorted(tt, browseList, 50, browseCount, 0);
     }
 
@@ -404,15 +405,15 @@ void ScanActivity::renderIdle() const {
 
     // Show current DB stats
     char buf[48];
-    snprintf(buf, sizeof(buf), "Cached APs:      %d", TARGETS.countByType(TargetType::WIFI_AP));
+    snprintf(buf, sizeof(buf), "Cached APs:      %d", TARGETS.countByType(TargetType::AP));
     renderer.drawText(UI_10_FONT_ID, leftPad, y, buf);
     y += fontH + 6;
 
-    snprintf(buf, sizeof(buf), "Cached Clients:  %d", TARGETS.countByType(TargetType::WIFI_CLIENT));
+    snprintf(buf, sizeof(buf), "Cached Clients:  %d", TARGETS.countByType(TargetType::STA));
     renderer.drawText(UI_10_FONT_ID, leftPad, y, buf);
     y += fontH + 6;
 
-    snprintf(buf, sizeof(buf), "Cached BLE:      %d", TARGETS.countByType(TargetType::BLE_DEVICE));
+    snprintf(buf, sizeof(buf), "Cached BLE:      %d", TARGETS.countByType(TargetType::BLE));
     renderer.drawText(UI_10_FONT_ID, leftPad, y, buf);
 
     const auto labels = mappedInput.mapLabels("Back", "Start", "", "");
@@ -527,12 +528,12 @@ void ScanActivity::renderBrowse() const {
                 if (i < 0 || i >= browseCount || !browseList[i]) return "";
                 const Target* t = browseList[i];
                 char sub[48];
-                const char* typeStr = (t->type == TargetType::WIFI_AP)     ? "AP"
-                                    : (t->type == TargetType::WIFI_CLIENT)  ? "Client"
+                const char* typeStr = (t->type == TargetType::AP)     ? "AP"
+                                    : (t->type == TargetType::STA)  ? "Client"
                                                                             : "BLE";
-                if (t->type == TargetType::WIFI_AP && t->ssid[0] != '\0') {
+                if (t->type == TargetType::AP && t->ssid[0] != '\0') {
                     snprintf(sub, sizeof(sub), "[%s] %s  RSSI:%d", typeStr, t->ssid, (int)t->rssi);
-                } else if (t->type == TargetType::BLE_DEVICE && t->name[0] != '\0') {
+                } else if (t->type == TargetType::BLE && t->name[0] != '\0') {
                     snprintf(sub, sizeof(sub), "[%s] %s  RSSI:%d", typeStr, t->name, (int)t->rssi);
                 } else {
                     snprintf(sub, sizeof(sub), "[%s]  RSSI:%d  Ch:%d", typeStr, (int)t->rssi, (int)t->channel);
@@ -586,19 +587,19 @@ void ScanActivity::renderTargetDetail() const {
     char buf[64];
 
     // Type
-    const char* typeStr = (t->type == TargetType::WIFI_AP)     ? "WiFi AP"
-                        : (t->type == TargetType::WIFI_CLIENT)  ? "WiFi Client"
+    const char* typeStr = (t->type == TargetType::AP)     ? "WiFi AP"
+                        : (t->type == TargetType::STA)  ? "WiFi Client"
                                                                 : "BLE Device";
     snprintf(buf, sizeof(buf), "Type:    %s", typeStr);
     renderer.drawText(UI_10_FONT_ID, leftPad, y, buf);
     y += lineGap;
 
     // SSID / Name
-    if (t->type == TargetType::WIFI_AP && t->ssid[0] != '\0') {
+    if (t->type == TargetType::AP && t->ssid[0] != '\0') {
         snprintf(buf, sizeof(buf), "SSID:    %.48s", t->ssid);
         renderer.drawText(UI_10_FONT_ID, leftPad, y, buf);
         y += lineGap;
-    } else if (t->type == TargetType::BLE_DEVICE && t->name[0] != '\0') {
+    } else if (t->type == TargetType::BLE && t->name[0] != '\0') {
         snprintf(buf, sizeof(buf), "Name:    %.48s", t->name);
         renderer.drawText(UI_10_FONT_ID, leftPad, y, buf);
         y += lineGap;
@@ -624,7 +625,7 @@ void ScanActivity::renderTargetDetail() const {
     y += lineGap;
 
     // Auth + PMF (WiFi AP only)
-    if (t->type == TargetType::WIFI_AP) {
+    if (t->type == TargetType::AP) {
         static const char* const AUTH_NAMES[] = {"Open", "WEP", "WPA", "WPA2", "WPA3"};
         const char* authName = (t->authType < 5) ? AUTH_NAMES[t->authType] : "?";
         snprintf(buf, sizeof(buf), "Auth:    %s   PMF: %s   WPS: %s",
@@ -652,7 +653,7 @@ void ScanActivity::renderTargetDetail() const {
     y += smallH + 4;
 
     // Probes (WiFi Client)
-    if (t->type == TargetType::WIFI_CLIENT && t->probeCount > 0) {
+    if (t->type == TargetType::STA && t->probeCount > 0) {
         renderer.drawText(SMALL_FONT_ID, leftPad, y, "Probes:");
         y += smallH + 2;
         for (int i = 0; i < t->probeCount && i < 5; i++) {

@@ -1,5 +1,6 @@
 #include "PacketRingBuffer.h"
 
+#include <Arduino.h>  // IRAM_ATTR, millis()
 #include <algorithm>
 #include <cstring>
 

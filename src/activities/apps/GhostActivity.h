@@ -23,7 +23,7 @@ public:
     bool preventAutoSleep() override { return true; }
 
 private:
-    enum State { DASHBOARD, SETTINGS, CONFIRM_WIPE, CONFIRM_RF_KILL };
+    enum State { DASHBOARD, CONFIG_VIEW, CONFIRM_WIPE, CONFIRM_RF_KILL };
 
     State state = DASHBOARD;
     GhostConfig config;

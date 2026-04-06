@@ -4,14 +4,14 @@
 #include <functional>
 
 enum class TargetType : uint8_t {
-    WIFI_AP,
-    WIFI_CLIENT,
-    BLE_DEVICE
+    AP,
+    STA,
+    BLE
 };
 
 struct Target {
     uint8_t mac[6] = {};
-    TargetType type = TargetType::WIFI_AP;
+    TargetType type = TargetType::AP;
     char ssid[33] = {};           // for APs: SSID. For clients: connected AP SSID
     uint8_t bssid[6] = {};        // for clients: associated AP BSSID
     char name[33] = {};           // BLE device name or friendly name

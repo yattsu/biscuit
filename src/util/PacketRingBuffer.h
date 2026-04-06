@@ -15,7 +15,7 @@ public:
     static constexpr int CAPACITY = 16;
 
     // Called from ISR context — no malloc, no logging
-    bool IRAM_ATTR push(const wifi_promiscuous_pkt_t* pkt);
+    bool push(const wifi_promiscuous_pkt_t* pkt);
 
     // Called from main loop
     bool pop(CapturedPacket& out);

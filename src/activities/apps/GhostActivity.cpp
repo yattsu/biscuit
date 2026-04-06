@@ -173,7 +173,7 @@ void GhostActivity::loop() {
                 switch (dashAction) {
                     case 0: state = CONFIRM_RF_KILL; break;
                     case 1: state = CONFIRM_WIPE;    break;
-                    case 2: state = SETTINGS; settingIndex = 0; break;
+                    case 2: state = CONFIG_VIEW; settingIndex = 0; break;
                 }
                 requestUpdate();
             }
@@ -183,7 +183,7 @@ void GhostActivity::loop() {
             break;
         }
 
-        case SETTINGS: {
+        case CONFIG_VIEW: {
             if (mappedInput.wasReleased(MappedInputManager::Button::Up)) {
                 settingIndex = (settingIndex - 1 + SETTING_COUNT) % SETTING_COUNT;
                 requestUpdate();
@@ -277,7 +277,7 @@ void GhostActivity::render(RenderLock&&) {
     renderer.clearScreen();
     switch (state) {
         case DASHBOARD:       renderDashboard();    break;
-        case SETTINGS:        renderSettings();     break;
+        case CONFIG_VIEW:        renderSettings();     break;
         case CONFIRM_WIPE:    renderConfirmWipe();  break;
         case CONFIRM_RF_KILL: renderConfirmRfKill(); break;
     }

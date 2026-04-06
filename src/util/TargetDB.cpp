@@ -322,9 +322,9 @@ bool TargetDB::exportProfile(const uint8_t mac[6], const char* path) {
     file.write(reinterpret_cast<const uint8_t*>(buf), strlen(buf));
 
     const char* typeStr = "UNKNOWN";
-    if (t.type == TargetType::WIFI_AP)     typeStr = "WIFI_AP";
-    else if (t.type == TargetType::WIFI_CLIENT) typeStr = "WIFI_CLIENT";
-    else if (t.type == TargetType::BLE_DEVICE)  typeStr = "BLE_DEVICE";
+    if (t.type == TargetType::AP)     typeStr = "WIFI_AP";
+    else if (t.type == TargetType::STA) typeStr = "WIFI_CLIENT";
+    else if (t.type == TargetType::BLE)  typeStr = "BLE_DEVICE";
 
     snprintf(buf, sizeof(buf), "Type: %s\n", typeStr);
     file.write(reinterpret_cast<const uint8_t*>(buf), strlen(buf));

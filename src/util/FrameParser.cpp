@@ -194,7 +194,7 @@ void FrameParser::processPacket(const CapturedPacket& pkt) {
 
     if (isBeacon(data, len) || isProbeResponse(data, len)) {
         Target t;
-        t.type     = TargetType::WIFI_AP;
+        t.type     = TargetType::AP;
         extractBSSID(data, t.mac);
         extractSSID(data, len, t.ssid, sizeof(t.ssid));
         t.channel  = extractChannel(data, len);
@@ -207,7 +207,7 @@ void FrameParser::processPacket(const CapturedPacket& pkt) {
     }
     else if (isProbeRequest(data, len)) {
         Target t;
-        t.type = TargetType::WIFI_CLIENT;
+        t.type = TargetType::STA;
         extractSrcMAC(data, t.mac);
         t.rssi      = pkt.rssi;
         t.lastSeen  = now;
@@ -229,7 +229,7 @@ void FrameParser::processPacket(const CapturedPacket& pkt) {
         if (toDS && !fromDS) {
             // Client → AP: Addr1=BSSID(AP), Addr2=Source(client), Addr3=Dest
             Target client;
-            client.type = TargetType::WIFI_CLIENT;
+            client.type = TargetType::STA;
             memcpy(client.mac,   data + 10, 6);  // Address 2 = client
             memcpy(client.bssid, data + 4,  6);  // Address 1 = AP BSSID
             client.rssi      = pkt.rssi;
@@ -240,7 +240,7 @@ void FrameParser::processPacket(const CapturedPacket& pkt) {
         else if (!toDS && fromDS) {
             // AP → Client: Addr1=Dest(client), Addr2=BSSID(AP), Addr3=Source
             Target client;
-            client.type = TargetType::WIFI_CLIENT;
+            client.type = TargetType::STA;
             memcpy(client.mac,   data + 4,  6);  // Address 1 = client
             memcpy(client.bssid, data + 10, 6);  // Address 2 = AP BSSID
             client.rssi      = pkt.rssi;
