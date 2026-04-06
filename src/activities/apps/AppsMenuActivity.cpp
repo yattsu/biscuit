@@ -102,6 +102,8 @@
 void AppsMenuActivity::onEnter() {
   Activity::onEnter();
   selectorIndex = 0;
+  // Check badges once on enter (SD I/O only here, not in periodic refresh)
+  badgeSecurity = Storage.exists("/biscuit/security.dat") ? 0 : -1;
   refreshSystemInfo();
   loadLastUsed();
   requestUpdate();
@@ -157,10 +159,16 @@ void AppsMenuActivity::loop() {
     requestUpdate();
   }
 
-  // Periodic info refresh
+  // Periodic info refresh — only redraw if visible values changed
   if (millis() - lastInfoRefresh > INFO_REFRESH_MS) {
+    uint32_t oldHeap = freeHeap;
+    bool oldWifi = wifiConnected;
     refreshSystemInfo();
-    requestUpdate();
+    // Only trigger e-ink refresh if KB-level heap changed or wifi status changed
+    bool heapChanged = (freeHeap / 1024) != (oldHeap / 1024);
+    if (heapChanged || (wifiConnected != oldWifi)) {
+      requestUpdate();
+    }
   }
 
   // === CONFIRM: open category ===
@@ -338,16 +346,15 @@ void AppsMenuActivity::render(RenderLock&&) {
 
   // === STATUS INFO ROW (below separator, above tiles) ===
   constexpr int statusRowY = 42;
-  char statusBuf[80];
+  char statusBuf[64];
   if (wifiConnected) {
-    snprintf(statusBuf, sizeof(statusBuf), "WiFi: connected  |  Heap: %luK  |  Up: %s",
+    snprintf(statusBuf, sizeof(statusBuf), "WiFi: on | %luK | %s",
              (unsigned long)(freeHeap / 1024), uptimeStr);
   } else {
-    snprintf(statusBuf, sizeof(statusBuf), "WiFi: off  |  BLE: off  |  Heap: %luK  |  Up: %s",
+    snprintf(statusBuf, sizeof(statusBuf), "WiFi: off | %luK | %s",
              (unsigned long)(freeHeap / 1024), uptimeStr);
   }
-  auto truncStatus = renderer.truncatedText(SMALL_FONT_ID, statusBuf, pageWidth - 28);
-  renderer.drawText(SMALL_FONT_ID, 14, statusRowY, truncStatus.c_str());
+  renderer.drawText(SMALL_FONT_ID, 14, statusRowY, statusBuf);
 
   // === TILE GRID ===
   constexpr int statusBarH = 40;
@@ -391,8 +398,6 @@ void AppsMenuActivity::refreshSystemInfo() {
     snprintf(uptimeStr, sizeof(uptimeStr), "%lum", mins);
   }
 
-  // Badge: security PIN check
-  badgeSecurity = Storage.exists("/biscuit/security.dat") ? 0 : -1;
 }
 
 void AppsMenuActivity::loadLastUsed() {
@@ -468,14 +473,14 @@ void AppsMenuActivity::drawTile(int index, int x, int y, int w, int h, bool sele
   int appCount = 0;
 
   switch (index) {
-    case 0: name = "Network";   subtitle = "Connect & diagnose"; appCount = 8;  break;
-    case 1: name = "Recon";     subtitle = "Scan & monitor";     appCount = 22; break;
-    case 2: name = "Security";  subtitle = "Defend & protect";   appCount = 10; break;
-    case 3: name = "Comms";     subtitle = "Chat & exchange";    appCount = 6;  break;
-    case 4: name = "Tools";     subtitle = "Utilities";          appCount = 23; break;
-    case 5: name = "Games";     subtitle = "Entertainment";      appCount = 12; break;
-    case 6: name = "System";    subtitle = "Device & settings";  appCount = 10; break;
-    case 7: name = "Reader";    subtitle = "Books & OPDS";       appCount = 5;  break;
+    case 0: name = "Network";   subtitle = "Connect & diagnose"; appCount = 7;  break;
+    case 1: name = "Recon";     subtitle = "Scan & monitor";     appCount = 21; break;
+    case 2: name = "Security";  subtitle = "Defend & protect";   appCount = 9;  break;
+    case 3: name = "Comms";     subtitle = "Chat & exchange";    appCount = 5;  break;
+    case 4: name = "Tools";     subtitle = "Utilities";          appCount = 22; break;
+    case 5: name = "Games";     subtitle = "Entertainment";      appCount = 11; break;
+    case 6: name = "System";    subtitle = "Device & settings";  appCount = 9;  break;
+    case 7: name = "Reader";    subtitle = "Books & OPDS";       appCount = 4;  break;
   }
 
   renderer.drawText(UI_12_FONT_ID, x + pad, nameY, name, !selected, EpdFontFamily::BOLD);

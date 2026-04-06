@@ -28,7 +28,7 @@ class AppsMenuActivity final : public Activity {
   unsigned long uptimeSeconds = 0;
   bool wifiConnected = false;
   unsigned long lastInfoRefresh = 0;
-  static constexpr unsigned long INFO_REFRESH_MS = 5000;
+  static constexpr unsigned long INFO_REFRESH_MS = 30000;
   char uptimeStr[16] = "";
 
   // Badge counts (refreshed with system info)
