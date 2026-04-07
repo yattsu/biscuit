@@ -152,7 +152,7 @@ void MeshChatActivity::onDataRecv(const esp_now_recv_info_t* recvInfo, const uin
             // Ensure the frame is exactly FRAME_CHAT_SIZE bytes and bump hop count
             activeInstance->relayQueue[slot][FRAME_CHAT_SIZE - 1] = hops + 1;
             activeInstance->relayLen[slot] = FRAME_CHAT_SIZE;
-            activeInstance->relayCount++;
+            activeInstance->relayCount = activeInstance->relayCount + 1;
           }
           portEXIT_CRITICAL(&activeInstance->relayMux);
         }
@@ -253,7 +253,7 @@ void MeshChatActivity::loop() {
       uint8_t frameCopy[FRAME_CHAT_SIZE];
       memcpy(frameCopy, relayQueue[slot], frameLen);
       relayHead = (relayHead + 1) % RELAY_QUEUE_SIZE;
-      relayCount--;
+      relayCount = relayCount - 1;
       portEXIT_CRITICAL(&relayMux);
 
       esp_now_send(broadcast, frameCopy, frameLen);

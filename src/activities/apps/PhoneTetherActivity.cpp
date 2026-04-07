@@ -107,8 +107,9 @@ void PhoneTetherActivity::processScanResults() {
 
   for (int i = 0; i < count; i++) {
     BLEAdvertisedDevice dev = results->getDevice(i);
-    std::string devMacStr = dev.getAddress().toString();
-    if (strncasecmp(devMacStr.c_str(), targetMac, 17) == 0) {
+    String devMacArduino = dev.getAddress().toString();
+    const char* devMacStr = devMacArduino.c_str();
+    if (strncasecmp(devMacStr, targetMac, 17) == 0) {
       targetFound = true;
       currentRssi = static_cast<int8_t>(dev.getRSSI());
       lastSeenTime = now;
