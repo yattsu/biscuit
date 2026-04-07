@@ -193,8 +193,6 @@ void AppsMenuActivity::loop() {
           app = std::make_unique<HuntActivity>(renderer, mappedInput);
           break;
         case 2:
-          app = std::make_unique<FireActivity>(renderer, mappedInput);
-          break;
           {
             std::vector<AppCategoryActivity::AppEntry> e = {
                 AppCategoryActivity::SectionHeader("WIRELESS TESTING"),

@@ -81,6 +81,13 @@ void DeauthDetectorActivity::onExit() {
   if (state != IDLE) stopMonitor();
 }
 
+DeauthDetectorActivity::~DeauthDetectorActivity() {
+  if (activeDetector == this) {
+    esp_wifi_set_promiscuous(false);
+    activeDetector = nullptr;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Start / stop promiscuous monitoring
 // ---------------------------------------------------------------------------
@@ -145,9 +152,15 @@ void DeauthDetectorActivity::loop() {
     lastUpdateTime = now;
 
     portENTER_CRITICAL(&statsMux);
-    uint32_t recent = intervalDeauth;
-    intervalDeauth  = 0;
+    uint32_t recent  = intervalDeauth;
+    intervalDeauth   = 0;
+    int currentCount = eventLogCount;
     portEXIT_CRITICAL(&statsMux);
+
+    // Clamp scroll position now that we hold a consistent count
+    if (currentCount > 0 && selectorIndex >= currentCount) {
+      selectorIndex = currentCount - 1;
+    }
 
     if (recent >= static_cast<uint32_t>(SPIKE_THRESHOLD)) {
       spikeCount = recent;
@@ -245,13 +258,18 @@ void DeauthDetectorActivity::render(RenderLock&&) {
   }
 
   // ---- MONITORING ----------------------------------------------------------
-  // Take a consistent snapshot of volatile counters
+  // Take a consistent snapshot of volatile counters AND the event log.
+  // Both reads happen inside the same critical section to prevent torn reads
+  // from the promiscuous ISR callback writing concurrently.
   portENTER_CRITICAL(&statsMux);
   uint32_t snapTotal    = totalFrames;
   uint32_t snapDeauth   = deauthCount;
   uint32_t snapDisassoc = disassocCount;
   int      snapCount    = eventLogCount;
-  int      snapHead     = eventLogHead;
+  DeauthEvent displayEvents[EVENT_LOG_SIZE];
+  int         displayCount = min(snapCount, (int)EVENT_LOG_SIZE);
+  int         displayHead  = eventLogHead;
+  memcpy(displayEvents, eventLog, sizeof(displayEvents));
   portEXIT_CRITICAL(&statsMux);
 
   // Header with channel info
@@ -278,12 +296,9 @@ void DeauthDetectorActivity::render(RenderLock&&) {
   renderer.drawLine(leftPad, y, pageWidth - leftPad, y, true);
   y += 6;
 
-  if (snapCount == 0) {
+  if (displayCount == 0) {
     renderer.drawCenteredText(UI_10_FONT_ID, y + 20, "No deauth/disassoc frames captured yet.");
   } else {
-    // Clamp selectorIndex
-    if (selectorIndex >= snapCount) selectorIndex = snapCount - 1;
-
     // The ring buffer is stored newest-first relative to head:
     // index 0 in our logical list = most recent event
     // logical index i maps to array index: (head - 1 - i + SIZE) % SIZE
@@ -293,11 +308,11 @@ void DeauthDetectorActivity::render(RenderLock&&) {
     GUI.drawList(
         renderer,
         Rect{0, listAreaTop, pageWidth, listAreaH},
-        snapCount,
+        displayCount,
         selectorIndex,
         [&](int i) -> std::string {
-          int arrIdx = (snapHead - 1 - i + EVENT_LOG_SIZE) % EVENT_LOG_SIZE;
-          const DeauthEvent& ev = eventLog[arrIdx];
+          int arrIdx = (displayHead - 1 - i + EVENT_LOG_SIZE) % EVENT_LOG_SIZE;
+          const DeauthEvent& ev = displayEvents[arrIdx];
           char label[32];
           char mac[18];
           formatMac(mac, sizeof(mac), ev.srcMac);
@@ -306,8 +321,8 @@ void DeauthDetectorActivity::render(RenderLock&&) {
           return label;
         },
         [&](int i) -> std::string {
-          int arrIdx = (snapHead - 1 - i + EVENT_LOG_SIZE) % EVENT_LOG_SIZE;
-          const DeauthEvent& ev = eventLog[arrIdx];
+          int arrIdx = (displayHead - 1 - i + EVENT_LOG_SIZE) % EVENT_LOG_SIZE;
+          const DeauthEvent& ev = displayEvents[arrIdx];
           char sub[40];
           char dst[18];
           formatMac(dst, sizeof(dst), ev.dstMac);

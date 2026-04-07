@@ -60,10 +60,7 @@ void ScanActivity::onEnter() {
 
 void ScanActivity::onExit() {
     Activity::onExit();
-    if (state == SCANNING || phase != PAUSED) {
-        esp_wifi_set_promiscuous(false);
-    }
-    RADIO.shutdown();
+    stopScanning();  // handles WiFi promisc disable, BLE scan stop, and RADIO.shutdown()
 }
 
 // ---------------------------------------------------------------------------

@@ -21,6 +21,8 @@ void WifiHeatMapActivity::onEnter() {
   sampleCount = 0;
   selectorIndex = 0;
   filename[0] = '\0';
+  headerWriteFailed = false;
+  maxPointsReached = false;
   requestUpdate();
 }
 
@@ -43,7 +45,13 @@ void WifiHeatMapActivity::startLogging() {
 
   snprintf(filename, sizeof(filename), "/biscuit/heatmaps/heatmap_%lu.csv", millis());
 
-  Storage.writeFile(filename, "Sample,Timestamp_ms,BSSID,SSID,RSSI,Channel\n");
+  // HEATMAP-003: check that header write succeeded before entering LOGGING state
+  if (!Storage.writeFile(filename, "Sample,Timestamp_ms,BSSID,SSID,RSSI,Channel\n")) {
+    LOG_DBG("HMAP", "Failed to write CSV header to %s", filename);
+    headerWriteFailed = true;
+    requestUpdate();
+    return;
+  }
 
   startTime = millis();
   lastScanTime = millis();
@@ -103,12 +111,22 @@ void WifiHeatMapActivity::processScanResults() {
         seenCount++;
       }
 
-      // Write CSV row
+      // HEATMAP-001: stop writing if we've hit the data point cap
+      if (totalDataPoints >= MAX_DATA_POINTS) {
+        if (f) f.close();
+        WiFi.scanDelete();
+        maxPointsReached = true;
+        state = SUMMARY;
+        LOG_DBG("HMAP", "Max data points reached, stopping logging");
+        requestUpdate();
+        return;
+      }
+
+      // HEATMAP-002: quote BSSID and SSID fields to handle commas/special chars
       if (f) {
-        char line[96];
-        // Escape commas in SSID by using a safe copy
+        char line[128];
         const char* ssidToWrite = ssidStr.isEmpty() ? "" : ap.ssid;
-        snprintf(line, sizeof(line), "%d,%lu,%s,%s,%d,%u\n",
+        snprintf(line, sizeof(line), "%d,%lu,\"%s\",\"%s\",%d,%u\n",
                  sampleCount, now, bssidBuf, ssidToWrite, (int)ap.rssi, (unsigned)ap.channel);
         f.print(line);
         totalDataPoints++;
@@ -181,10 +199,18 @@ void WifiHeatMapActivity::render(RenderLock&&) {
                    "WiFi Heat Map");
 
     int y = contentTop + 20;
-    renderer.drawCenteredText(UI_10_FONT_ID, y, "Walk around while logging RSSI", true);
-    y += 24;
-    renderer.drawCenteredText(UI_10_FONT_ID, y, "Data saved to SD card as CSV", true);
-    y += 40;
+    if (headerWriteFailed) {
+      // HEATMAP-003: surface the write error to the user
+      renderer.drawCenteredText(UI_10_FONT_ID, y, "Error: could not write to SD card", true);
+      y += 24;
+      renderer.drawCenteredText(UI_10_FONT_ID, y, "Check card and try again", true);
+      y += 40;
+    } else {
+      renderer.drawCenteredText(UI_10_FONT_ID, y, "Walk around while logging RSSI", true);
+      y += 24;
+      renderer.drawCenteredText(UI_10_FONT_ID, y, "Data saved to SD card as CSV", true);
+      y += 40;
+    }
     renderer.drawCenteredText(UI_10_FONT_ID, y, "Press OK to start", true);
 
     const auto labels = mappedInput.mapLabels("Back", "Start", "", "");
@@ -240,6 +266,12 @@ void WifiHeatMapActivity::render(RenderLock&&) {
     snprintf(buf, sizeof(buf), "Duration: %lus", duration);
     renderer.drawCenteredText(UI_10_FONT_ID, y, buf, true);
     y += 32;
+
+    // HEATMAP-001: notify user when logging stopped due to the data point cap
+    if (maxPointsReached) {
+      renderer.drawCenteredText(UI_10_FONT_ID, y, "Max samples reached", true);
+      y += 24;
+    }
 
     // Show just the filename portion (after last slash)
     const char* fname = filename;

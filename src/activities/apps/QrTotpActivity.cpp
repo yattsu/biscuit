@@ -53,6 +53,7 @@ uint32_t QrTotpActivity::generateTotp(const uint8_t* key, int keyLen, uint64_t c
 }
 
 uint32_t QrTotpActivity::currentCode() const {
+  if (!timeValid) return 0;
   if (selectedIndex < 0 || selectedIndex >= accountCount) return 0;
   const Account& acc = accounts[selectedIndex];
   uint8_t key[40];
@@ -82,6 +83,10 @@ void QrTotpActivity::loadAccounts() {
 void QrTotpActivity::onEnter() {
   Activity::onEnter();
   loadAccounts();
+  // No battery-backed RTC: after a cold boot time(nullptr) returns ~0 (epoch
+  // 1970). Require the clock to be plausibly in the post-2020 range before
+  // trusting it for TOTP generation.
+  timeValid = (time(nullptr) > 1600000000);
   state = SELECT_ACCOUNT;
   selectedIndex = 0;
   lastPeriodIndex = 0;
@@ -119,8 +124,9 @@ void QrTotpActivity::loop() {
       requestUpdate();
       return;
     }
-    // Auto-refresh when the 30-second TOTP period rolls over
-    if (selectedIndex >= 0 && selectedIndex < accountCount) {
+    // Auto-refresh when the 30-second TOTP period rolls over.
+    // Only meaningful when the clock is valid — skip entirely on cold boot.
+    if (timeValid && selectedIndex >= 0 && selectedIndex < accountCount) {
       uint8_t period = accounts[selectedIndex].period;
       uint64_t currentPeriod = (uint64_t)time(nullptr) / period;
       if (currentPeriod != lastPeriodIndex) {
@@ -164,6 +170,19 @@ void QrTotpActivity::render(RenderLock&&) {
       return;
     }
 
+    const auto labels = mappedInput.mapLabels("Back", "", "", "");
+
+    if (!timeValid) {
+      // Clock has not been synchronised — show a warning instead of a wrong code.
+      const int midY = pageHeight / 2;
+      renderer.drawCenteredText(UI_12_FONT_ID, midY - 24, "Clock not set", true, EpdFontFamily::BOLD);
+      renderer.drawCenteredText(UI_10_FONT_ID, midY + 4, "Connect to WiFi to sync time.");
+      renderer.drawCenteredText(SMALL_FONT_ID, midY + 28, "TOTP codes require a valid clock.");
+      GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
+      renderer.displayBuffer();
+      return;
+    }
+
     const Account& acc = accounts[selectedIndex];
 
     // Generate numeric code string
@@ -196,7 +215,6 @@ void QrTotpActivity::render(RenderLock&&) {
     snprintf(timeBuf, sizeof(timeBuf), "%ds", remaining);
     renderer.drawCenteredText(SMALL_FONT_ID, textY + 46, timeBuf);
 
-    const auto labels = mappedInput.mapLabels("Back", "", "", "");
     GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
   }
 

@@ -37,6 +37,11 @@ class QrTotpActivity final : public Activity {
   // Last period index at which SHOW_QR was rendered — used for auto-refresh
   uint64_t lastPeriodIndex = 0;
 
+  // True only when the system clock has been set via NTP (epoch > Sept 2020).
+  // Without a battery-backed RTC the clock resets to 1970 on cold boot and
+  // TOTP codes would be silently wrong.
+  bool timeValid = false;
+
   void loadAccounts();
 
   static int base32Decode(const char* input, uint8_t* output, int outLen);

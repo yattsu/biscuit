@@ -26,6 +26,7 @@ class WifiHeatMapActivity final : public Activity {
 
   static constexpr int MAX_CURRENT = 30;
   static constexpr int MAX_UNIQUE = 100;
+  static constexpr int MAX_DATA_POINTS = 10000;
   static constexpr unsigned long SCAN_INTERVAL_MS = 5000;
 
   State state = IDLE;
@@ -44,6 +45,8 @@ class WifiHeatMapActivity final : public Activity {
   char filename[64];
   unsigned long startTime = 0;
   unsigned long lastScanTime = 0;
+  bool headerWriteFailed = false;
+  bool maxPointsReached = false;
 
   void startLogging();
   void stopLogging();

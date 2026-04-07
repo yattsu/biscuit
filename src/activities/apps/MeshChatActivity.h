@@ -5,6 +5,7 @@
 #include <vector>
 #include <freertos/FreeRTOS.h>
 #include <freertos/semphr.h>
+#include <freertos/portmacro.h>
 
 #include "activities/Activity.h"
 #include "util/ButtonNavigator.h"
@@ -46,6 +47,9 @@ class MeshChatActivity final : public Activity {
   int messageCount = 0;
   int messageHead = 0;
   int scrollOffset = 0;
+  // MESH-001: spinlock protecting the message ring buffer (written from WiFi task,
+  // read from render task). Must be mutable so const render methods can acquire it.
+  mutable portMUX_TYPE msgMux = portMUX_INITIALIZER_UNLOCKED;
 
   // Peers
   std::vector<Peer> peers;
@@ -70,8 +74,29 @@ class MeshChatActivity final : public Activity {
   // [1-6]   = sender MAC
   // [7-22]  = sender name (16 bytes, null-terminated)
   // [23-222]= text payload (200 bytes max, null-terminated)
+  // [223]   = hop count (relay TTL, 0 = original sender)
   static constexpr uint8_t FRAME_CHAT = 0x01;
   static constexpr uint8_t FRAME_PRESENCE = 0x02;
+  static constexpr int FRAME_CHAT_SIZE = 224;  // includes hop-count byte
+
+  // MESH-003: relay TTL
+  static constexpr uint8_t MAX_RELAY_HOPS = 3;
+
+  // MESH-003: dedup ring buffer — FNV-1a hash of (sender MAC + first 8 bytes of text)
+  static constexpr int DEDUP_RING_SIZE = 16;
+  uint32_t recentHashes[DEDUP_RING_SIZE] = {};
+  int dedupHead = 0;
+
+  // MESH-002: flag set by the WiFi-task callback; drained in loop()
+  volatile bool pendingRender = false;
+
+  // MESH-004: relay queue — frames are queued in the callback and sent from loop()
+  static constexpr int RELAY_QUEUE_SIZE = 4;
+  uint8_t relayQueue[RELAY_QUEUE_SIZE][FRAME_CHAT_SIZE];
+  int relayLen[RELAY_QUEUE_SIZE] = {};
+  volatile int relayHead = 0;
+  volatile int relayCount = 0;
+  portMUX_TYPE relayMux = portMUX_INITIALIZER_UNLOCKED;
 
   void initEspNow();
   void deinitEspNow();

@@ -203,6 +203,7 @@ void PhoneTetherActivity::loop() {
       lastSeenTime = 0;
       historyIndex = 0;
       historyCount = 0;
+      bleError[0] = '\0';
       state = MONITORING;
       if (!scanInitialized) {
         needsInit = true;
@@ -217,7 +218,13 @@ void PhoneTetherActivity::loop() {
   // Initialize BLE (deferred to loop to avoid blocking onEnter)
   if (needsInit) {
     needsInit = false;
-    RADIO.ensureBle();
+    if (!RADIO.ensureBle()) {
+      strncpy(bleError, "BLE init failed", sizeof(bleError) - 1);
+      bleError[sizeof(bleError) - 1] = '\0';
+      state = CONFIG;
+      requestUpdate();
+      return;
+    }
     scanInitialized = true;
     startBleScan();
     requestUpdate();
@@ -363,6 +370,12 @@ void PhoneTetherActivity::renderConfig() const {
   }
 
   y += renderer.getTextHeight(UI_10_FONT_ID) + metrics.verticalSpacing + 8;
+
+  // BLE error (shown when init failed)
+  if (bleError[0] != '\0') {
+    renderer.drawCenteredText(UI_10_FONT_ID, y, bleError, true, EpdFontFamily::BOLD);
+    y += renderer.getTextHeight(UI_10_FONT_ID) + 6;
+  }
 
   // Hint text
   renderer.drawCenteredText(SMALL_FONT_ID, y, "Left/Right: select field  Up/Down: change value");

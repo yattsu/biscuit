@@ -37,6 +37,16 @@ class SdEncryptionActivity final : public Activity {
   static constexpr int         KEY_LEN        = 32;
   static constexpr uint32_t    MAX_FILE_BYTES = 32 * 1024;
 
+  // ENC-001: file name collection buffers moved to class members to avoid
+  // 4 KB stack allocation inside result-handler lambda (deep call chain).
+  static constexpr int MAX_FILES = 32;
+  static constexpr int NAME_MAX  = 128;
+  char fileNames[MAX_FILES][NAME_MAX];  // ~4 KB, heap-allocated with the object
+
+  // ENC-004: two-phase Change-PIN state
+  bool    changePinPhase2 = false;
+  uint8_t oldKey[KEY_LEN] = {};  // holds verified current-key during phase 1→2
+
   // Derive AES-256 key from PIN via iterated SHA-256
   static void deriveKey(const char* pin, uint8_t key[32]);
 
@@ -63,6 +73,9 @@ class SdEncryptionActivity final : public Activity {
   // Count eligible files (.dat/.cfg/.csv/.json/.txt) in /biscuit/
   int countEligible(bool forEncrypt) const;
 
+  // Returns true if any .benc files exist in /biscuit/
+  bool hasEncryptedFiles() const;
+
   // Timed message
   unsigned long msgUntilMs = 0;
   char msgBuf[48] = {};
@@ -71,4 +84,7 @@ class SdEncryptionActivity final : public Activity {
   void renderMenu() const;
   void renderProcessing() const;
   void renderDone() const;
+
+  // Internal: launch the "Enter new PIN" keyboard for phase 2 of Change PIN
+  void launchChangePinPhase2();
 };

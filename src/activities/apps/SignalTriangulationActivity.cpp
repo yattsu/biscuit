@@ -251,7 +251,7 @@ void SignalTriangulationActivity::render(RenderLock&&) {
         renderer, Rect{0, contentTop, pageWidth, contentHeight}, apCount, apIndex,
         [this](int i) -> std::string { return apList[i].ssid; },
         [this](int i) -> std::string {
-          char buf[32];
+          char buf[48];
           snprintf(buf, sizeof(buf), "%d dBm  Ch%d  %s",
                    static_cast<int>(apList[i].rssi),
                    static_cast<int>(apList[i].channel),

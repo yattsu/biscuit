@@ -292,7 +292,16 @@ void HuntActivity::loop() {
                 return;
             }
             if (mappedInput.wasReleased(MappedInputManager::Button::Down)) {
+                const auto& metrics   = UITheme::getInstance().getMetrics();
+                const auto pageHeight = renderer.getScreenHeight();
+                const int  lh         = 24;
+                const int  contentTop = metrics.topPadding + metrics.headerHeight + 8;
+                const int  visibleLines =
+                    (pageHeight - contentTop - metrics.buttonHintsHeight) / lh;
+                // 20 is a conservative upper bound on total profile lines
+                const int maxScroll = (20 - visibleLines > 0) ? (20 - visibleLines) : 0;
                 profileScroll++;
+                if (profileScroll > maxScroll) profileScroll = maxScroll;
                 requestUpdate();
             }
             if (mappedInput.wasReleased(MappedInputManager::Button::Up)) {
@@ -314,7 +323,10 @@ void HuntActivity::loop() {
                         if (macBuf[i] == ':') macBuf[i] = '-';
                     }
                     snprintf(path, sizeof(path), "/biscuit/targets/%s.txt", macBuf);
+                    Storage.mkdir("/biscuit");
+                    Storage.mkdir("/biscuit/targets");
                     TARGETS.exportProfile(current->mac, path);
+                    requestUpdate();
                 }
             }
             if (mappedInput.wasReleased(MappedInputManager::Button::PageBack)) {

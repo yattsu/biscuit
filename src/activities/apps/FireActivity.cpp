@@ -13,6 +13,26 @@
 #include "fontIds.h"
 #include "util/RadioManager.h"
 
+// ---------------------------------------------------------------------------
+// Path-safe filename helper — replaces every character that is not
+// alphanumeric, '-', '_', or '.' with '_'.  Falls back to "capture" if the
+// result would be empty.
+// ---------------------------------------------------------------------------
+static void sanitizeFilename(char* out, size_t outLen, const char* input) {
+    size_t j = 0;
+    for (size_t i = 0; input[i] && j < outLen - 1; i++) {
+        char c = input[i];
+        if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
+            (c >= '0' && c <= '9') || c == '-' || c == '_' || c == '.') {
+            out[j++] = c;
+        } else {
+            out[j++] = '_';
+        }
+    }
+    out[j] = '\0';
+    if (j == 0) { strncpy(out, "capture", outLen); out[outLen - 1] = '\0'; }
+}
+
 extern "C" int __wrap_ieee80211_raw_frame_sanity_check(int32_t arg, int32_t arg2, int32_t arg3) {
     return 0;
 }
@@ -250,6 +270,7 @@ void FireActivity::startAttack() {
     switch (activeAttack) {
         case ATK_HANDSHAKE_CAPTURE:
         case ATK_PMKID_HARVEST: {
+            if (!target) break;
             // Set channel and start promiscuous capture
             uint8_t ch = target->channel;
             if (ch == 0) ch = 1;
@@ -257,10 +278,12 @@ void FireActivity::startAttack() {
             esp_wifi_set_promiscuous_rx_cb(captureCallback);
             esp_wifi_set_promiscuous(true);
 
-            // Create PCAP file
+            // Create PCAP file with sanitized SSID in name
+            char ssidSafe[33];
+            sanitizeFilename(ssidSafe, sizeof(ssidSafe),
+                             target->ssid[0] ? target->ssid : "capture");
             char path[80];
-            snprintf(path, sizeof(path), "/biscuit/loot/handshakes/%s.pcap",
-                     target->ssid[0] ? target->ssid : "capture");
+            snprintf(path, sizeof(path), "/biscuit/loot/handshakes/%s.pcap", ssidSafe);
             savePcapHeader(path);
             break;
         }
@@ -468,9 +491,11 @@ void FireActivity::processCaptureBuf() {
 
 void FireActivity::checkEapolFrame(const uint8_t* data, uint16_t len) {
     // Save raw frame to PCAP
+    char ssidSafe[33];
+    sanitizeFilename(ssidSafe, sizeof(ssidSafe),
+                     (target && target->ssid[0]) ? target->ssid : "capture");
     char path[80];
-    snprintf(path, sizeof(path), "/biscuit/loot/handshakes/%s.pcap",
-             target && target->ssid[0] ? target->ssid : "capture");
+    snprintf(path, sizeof(path), "/biscuit/loot/handshakes/%s.pcap", ssidSafe);
     appendPcapPacket(path, data, len);
 
     // Determine EAPOL offset
@@ -498,9 +523,11 @@ void FireActivity::checkEapolFrame(const uint8_t* data, uint16_t len) {
                 pmkidFound = true;
 
                 // Save PMKID in hashcat format
+                char pmkidSafe[33];
+                sanitizeFilename(pmkidSafe, sizeof(pmkidSafe),
+                                 (target && target->ssid[0]) ? target->ssid : "capture");
                 char pmkidPath[80];
-                snprintf(pmkidPath, sizeof(pmkidPath), "/biscuit/loot/pmkid/%s.pmkid",
-                         target && target->ssid[0] ? target->ssid : "capture");
+                snprintf(pmkidPath, sizeof(pmkidPath), "/biscuit/loot/pmkid/%s.pmkid", pmkidSafe);
                 Storage.mkdir("/biscuit/loot/pmkid");
 
                 FsFile pf;
@@ -550,6 +577,7 @@ void FireActivity::checkEapolFrame(const uint8_t* data, uint16_t len) {
 // ---------------------------------------------------------------------------
 
 void FireActivity::tickDeauthBroadcast() {
+    if (!target) return;
     unsigned long now = millis();
     if (now - lastActionMs < 50) return; // ~20 packets/sec
     lastActionMs = now;
@@ -564,6 +592,7 @@ void FireActivity::tickDeauthBroadcast() {
 }
 
 void FireActivity::tickDeauthTargeted() {
+    if (!target) return;
     // Deauth using target's BSSID → send to each known client
     unsigned long now = millis();
     if (now - lastActionMs < 100) return;
@@ -585,6 +614,7 @@ void FireActivity::tickDeauthTargeted() {
 }
 
 void FireActivity::tickRogueAp() {
+    if (!target) return;
     // Only need to set up once — ESP32 auto-deauths per 802.11
     if (packetsSent > 0) return; // already started
 
@@ -606,6 +636,7 @@ void FireActivity::tickRogueAp() {
 }
 
 void FireActivity::tickHandshakeCapture() {
+    if (!target) return;
     if (captureComplete) {
         state = RESULTS;
         snprintf(resultLine, sizeof(resultLine),
@@ -652,6 +683,7 @@ void FireActivity::tickHandshakeCapture() {
 }
 
 void FireActivity::tickPmkidHarvest() {
+    if (!target) return;
     if (pmkidFound) {
         state = RESULTS;
         snprintf(resultLine, sizeof(resultLine),
@@ -697,6 +729,7 @@ void FireActivity::tickBeaconFlood() {
 }
 
 void FireActivity::tickAuthFlood() {
+    if (!target) return;
     unsigned long now = millis();
     if (now - lastActionMs < 20) return; // ~50/sec
     lastActionMs = now;
@@ -742,6 +775,7 @@ void FireActivity::tickKarmaAp() {
 }
 
 void FireActivity::tickEvilTwin() {
+    if (!target) return;
     // Set up once — clone AP + serve captive portal
     if (packetsSent > 0) return;
 
@@ -973,7 +1007,17 @@ void FireActivity::loop() {
 
         case CONFIRM: {
             if (mappedInput.wasReleased(MappedInputManager::Button::Confirm)) {
-                startAttack();
+                AttackType selectedAttack = attacks[attackIndex].type;
+                // Attacks that are not universal always need a target — refuse to
+                // start if none is selected rather than crashing in the tick function.
+                if (!isUniversalAttack(selectedAttack) && !target) {
+                    pendingAttack = selectedAttack;
+                    state = TARGET_SELECT;
+                    loadTargetList();
+                    requestUpdate();
+                } else {
+                    startAttack();
+                }
             }
             if (mappedInput.wasReleased(MappedInputManager::Button::Back)) {
                 state = ATTACK_SELECT;

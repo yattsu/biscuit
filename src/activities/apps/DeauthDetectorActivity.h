@@ -12,6 +12,8 @@ class DeauthDetectorActivity final : public Activity {
   explicit DeauthDetectorActivity(GfxRenderer& renderer, MappedInputManager& mappedInput)
       : Activity("DeauthDetector", renderer, mappedInput) {}
 
+  ~DeauthDetectorActivity() override;
+
   void onEnter() override;
   void onExit() override;
   void loop() override;

@@ -1,5 +1,8 @@
 #pragma once
 
+#include <string>
+#include <vector>
+
 #include "activities/Activity.h"
 #include "util/ButtonNavigator.h"
 
@@ -35,6 +38,9 @@ class SteganographyActivity final : public Activity {
   int totalLines = 0;
   bool embedSuccess = false;
   bool extractFound = false;
+
+  std::vector<std::string> cachedLines;
+  bool linesCacheDirty = true;
 
   ButtonNavigator buttonNavigator;
 

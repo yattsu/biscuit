@@ -27,6 +27,14 @@ void MeshChatActivity::onEnter() {
   peerSelectorIndex = 0;
   espnowInitialized = false;
   lastPresenceTime = 0;
+  // MESH-002: reset pending render flag
+  pendingRender = false;
+  // MESH-003: reset dedup ring
+  memset(recentHashes, 0, sizeof(recentHashes));
+  dedupHead = 0;
+  // MESH-004: reset relay queue
+  relayHead = 0;
+  relayCount = 0;
   activeInstance = this;
   if (!peersMux) peersMux = xSemaphoreCreateMutex();
 
@@ -79,6 +87,20 @@ void MeshChatActivity::deinitEspNow() {
   }
 }
 
+// FNV-1a 32-bit hash of sender MAC (6 bytes) + first 8 bytes of text payload
+static uint32_t computeFrameHash(const uint8_t* mac, const uint8_t* textBytes) {
+  uint32_t h = 2166136261u;
+  for (int i = 0; i < 6; i++) {
+    h ^= mac[i];
+    h *= 16777619u;
+  }
+  for (int i = 0; i < 8; i++) {
+    h ^= textBytes[i];
+    h *= 16777619u;
+  }
+  return h;
+}
+
 void MeshChatActivity::onDataRecv(const esp_now_recv_info_t* recvInfo, const uint8_t* data, int len) {
   if (!activeInstance || !recvInfo || len < 23) return;
   const uint8_t* mac = recvInfo->src_addr;
@@ -96,12 +118,44 @@ void MeshChatActivity::onDataRecv(const esp_now_recv_info_t* recvInfo, const uin
     text[199] = '\0';
 
     activeInstance->addMessage(mac, senderName, text, false);
-    activeInstance->requestUpdate();
+    // MESH-002: do not call requestUpdate() from WiFi-task context; set flag instead
+    activeInstance->pendingRender = true;
 
+    // MESH-003 + MESH-004: relay with TTL, dedup, and safe out-of-callback send
     if (activeInstance->relayMode) {
+      // Only relay frames not originated by us
       if (memcmp(data + 1, activeInstance->localMac, 6) != 0) {
-        uint8_t broadcast[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
-        esp_now_send(broadcast, data, len);
+        // MESH-003: read hop count — byte at offset 223 (only present in full frames)
+        uint8_t hops = (len >= FRAME_CHAT_SIZE) ? data[FRAME_CHAT_SIZE - 1] : 0;
+        if (hops < MAX_RELAY_HOPS) {
+          // MESH-003: dedup — compute hash of (sender MAC + first 8 bytes of text)
+          uint8_t textPad[8] = {};
+          memcpy(textPad, data + 23, (len - 23 >= 8) ? 8 : len - 23);
+          uint32_t h = computeFrameHash(data + 1, textPad);
+
+          bool duplicate = false;
+          portENTER_CRITICAL(&activeInstance->relayMux);
+          for (int i = 0; i < DEDUP_RING_SIZE; i++) {
+            if (activeInstance->recentHashes[i] == h) { duplicate = true; break; }
+          }
+          if (!duplicate && activeInstance->relayCount < RELAY_QUEUE_SIZE) {
+            // Store hash in dedup ring
+            activeInstance->recentHashes[activeInstance->dedupHead] = h;
+            activeInstance->dedupHead = (activeInstance->dedupHead + 1) % DEDUP_RING_SIZE;
+
+            // MESH-004: queue the relay frame (copy + increment hop count)
+            int slot = (activeInstance->relayHead + activeInstance->relayCount) % RELAY_QUEUE_SIZE;
+            // Zero the slot first so any bytes beyond len are clean, then copy
+            memset(activeInstance->relayQueue[slot], 0, FRAME_CHAT_SIZE);
+            int copyLen = (len < FRAME_CHAT_SIZE) ? len : FRAME_CHAT_SIZE;
+            memcpy(activeInstance->relayQueue[slot], data, copyLen);
+            // Ensure the frame is exactly FRAME_CHAT_SIZE bytes and bump hop count
+            activeInstance->relayQueue[slot][FRAME_CHAT_SIZE - 1] = hops + 1;
+            activeInstance->relayLen[slot] = FRAME_CHAT_SIZE;
+            activeInstance->relayCount++;
+          }
+          portEXIT_CRITICAL(&activeInstance->relayMux);
+        }
       }
     }
   } else if (frameType == FRAME_PRESENCE) {
@@ -135,11 +189,13 @@ void MeshChatActivity::onDataRecv(const esp_now_recv_info_t* recvInfo, const uin
 void MeshChatActivity::sendMessage(const char* text) {
   if (!espnowInitialized || !text || text[0] == '\0') return;
 
-  uint8_t frame[223] = {};
+  // FRAME_CHAT_SIZE = 224: [0]=type [1-6]=MAC [7-22]=name [23-222]=text [223]=hop count
+  uint8_t frame[FRAME_CHAT_SIZE] = {};
   frame[0] = FRAME_CHAT;
   memcpy(frame + 1, localMac, 6);
   strncpy(reinterpret_cast<char*>(frame + 7), localName, 15);
   strncpy(reinterpret_cast<char*>(frame + 23), text, 199);
+  frame[FRAME_CHAT_SIZE - 1] = 0;  // hop count = 0 (original sender)
 
   uint8_t broadcast[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
   esp_now_send(broadcast, frame, sizeof(frame));
@@ -161,6 +217,8 @@ void MeshChatActivity::sendPresenceBeacon() {
 }
 
 void MeshChatActivity::addMessage(const uint8_t* senderMac, const char* senderName, const char* text, bool isLocal) {
+  // MESH-001: protect the ring buffer — this may be called from the WiFi task
+  portENTER_CRITICAL(&msgMux);
   int idx = messageHead;
   memcpy(messages[idx].senderMac, senderMac, 6);
   strncpy(messages[idx].senderName, senderName, 15);
@@ -175,9 +233,36 @@ void MeshChatActivity::addMessage(const uint8_t* senderMac, const char* senderNa
 
   // Auto-scroll to newest
   scrollOffset = 0;
+  portEXIT_CRITICAL(&msgMux);
 }
 
 void MeshChatActivity::loop() {
+  // MESH-002: drain the render request flag set by the WiFi-task callback
+  if (pendingRender) {
+    pendingRender = false;
+    requestUpdate();
+  }
+
+  // MESH-004: drain the relay queue — safe to call esp_now_send() from loop task
+  if (espnowInitialized && relayCount > 0) {
+    uint8_t broadcast[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
+    portENTER_CRITICAL(&relayMux);
+    while (relayCount > 0) {
+      int slot = relayHead;
+      int frameLen = relayLen[slot];
+      uint8_t frameCopy[FRAME_CHAT_SIZE];
+      memcpy(frameCopy, relayQueue[slot], frameLen);
+      relayHead = (relayHead + 1) % RELAY_QUEUE_SIZE;
+      relayCount--;
+      portEXIT_CRITICAL(&relayMux);
+
+      esp_now_send(broadcast, frameCopy, frameLen);
+
+      portENTER_CRITICAL(&relayMux);
+    }
+    portEXIT_CRITICAL(&relayMux);
+  }
+
   // Send presence beacon periodically
   if (espnowInitialized && millis() - lastPresenceTime >= PRESENCE_INTERVAL_MS) {
     sendPresenceBeacon();
@@ -277,11 +362,23 @@ void MeshChatActivity::renderChatView() const {
     peersCount = static_cast<int>(peers.size());
     xSemaphoreGive(peersMux);
   }
+
+  // MESH-001: copy message ring-buffer fields under the spinlock to avoid a data
+  // race with addMessage() which may be called from the WiFi task.
+  int localCount, localHead, localScroll;
+  Message localMessages[MAX_MESSAGES];
+  portENTER_CRITICAL(&msgMux);
+  localCount  = messageCount;
+  localHead   = messageHead;
+  localScroll = scrollOffset;
+  if (localCount > 0) memcpy(localMessages, messages, sizeof(messages));
+  portEXIT_CRITICAL(&msgMux);
+
   char subtitle[48];
   if (relayMode) {
-    snprintf(subtitle, sizeof(subtitle), "%d msgs | %d peers | RELAY", messageCount, peersCount);
+    snprintf(subtitle, sizeof(subtitle), "%d msgs | %d peers | RELAY", localCount, peersCount);
   } else {
-    snprintf(subtitle, sizeof(subtitle), "%d msgs | %d peers", messageCount, peersCount);
+    snprintf(subtitle, sizeof(subtitle), "%d msgs | %d peers", localCount, peersCount);
   }
   GUI.drawHeader(renderer, Rect{0, metrics.topPadding, pageWidth, metrics.headerHeight},
                  "Mesh Chat", subtitle);
@@ -290,18 +387,18 @@ void MeshChatActivity::renderChatView() const {
   const int contentBottom = pageHeight - metrics.buttonHintsHeight - metrics.verticalSpacing;
   const int lineH = renderer.getLineHeight(SMALL_FONT_ID) + 4;
 
-  if (messageCount == 0) {
+  if (localCount == 0) {
     renderer.drawCenteredText(UI_10_FONT_ID, (contentTop + contentBottom) / 2,
                               "No messages yet. Press Confirm to send.");
   } else {
     // Render messages from newest (bottom) to oldest (top)
     int y = contentBottom - lineH;
-    int msgIdx = (messageHead - 1 - scrollOffset + MAX_MESSAGES) % MAX_MESSAGES;
+    int msgIdx = (localHead - 1 - localScroll + MAX_MESSAGES) % MAX_MESSAGES;
     int drawn = 0;
-    int maxDraw = messageCount - scrollOffset;
+    int maxDraw = localCount - localScroll;
 
     while (drawn < maxDraw && y >= contentTop) {
-      const Message& msg = messages[msgIdx];
+      const Message& msg = localMessages[msgIdx];
 
       char line[240];
       if (msg.isLocal) {

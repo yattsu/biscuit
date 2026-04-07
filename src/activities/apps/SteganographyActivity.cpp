@@ -70,9 +70,20 @@ void SteganographyActivity::loadFileList() {
 // ---------------------------------------------------------------------------
 
 bool SteganographyActivity::embedMessage(const char* path, const char* msg, int len) {
-  // Step 1: open original, read declared BMP size (bytes 2-5 LE)
+  // Step 1: open original, validate BMP magic, read declared BMP size (bytes 2-5 LE)
   HalFile src = Storage.open(path, O_RDONLY);
   if (!src) return false;
+
+  uint8_t magic[2];
+  if (src.read(magic, 2) != 2 || magic[0] != 'B' || magic[1] != 'M') {
+    src.close();
+    embedSuccess = false;
+    // Reuse messageBuffer to surface the error to the EMBED_DONE screen
+    strncpy(messageBuffer, "Not a valid BMP file", MAX_MSG_LEN);
+    messageBuffer[MAX_MSG_LEN] = '\0';
+    messageLen = 0;
+    return false;
+  }
 
   if (!src.seekSet(2)) {
     src.close();
@@ -214,6 +225,7 @@ void SteganographyActivity::doExtract() {
   extractFound = extractMessage(selectedPath);
   scrollOffset = 0;
   totalLines = 0;
+  linesCacheDirty = true;
   state = EXTRACT_RESULT;
   requestUpdate();
 }
@@ -241,7 +253,7 @@ void SteganographyActivity::loop() {
       requestUpdate();
     }
 
-    if (mappedInput.wasPressed(MappedInputManager::Button::Back)) {
+    if (mappedInput.wasReleased(MappedInputManager::Button::Back)) {
       finish();
     }
     return;
@@ -296,7 +308,7 @@ void SteganographyActivity::loop() {
       }
     }
 
-    if (mappedInput.wasPressed(MappedInputManager::Button::Back)) {
+    if (mappedInput.wasReleased(MappedInputManager::Button::Back)) {
       state = MODE_SELECT;
       requestUpdate();
     }
@@ -304,7 +316,7 @@ void SteganographyActivity::loop() {
   }
 
   if (state == EMBED_DONE) {
-    if (mappedInput.wasPressed(MappedInputManager::Button::Back)) {
+    if (mappedInput.wasReleased(MappedInputManager::Button::Back)) {
       state = MODE_SELECT;
       requestUpdate();
     }
@@ -336,7 +348,7 @@ void SteganographyActivity::loop() {
       }
     });
 
-    if (mappedInput.wasPressed(MappedInputManager::Button::Back)) {
+    if (mappedInput.wasReleased(MappedInputManager::Button::Back)) {
       state = MODE_SELECT;
       requestUpdate();
     }
@@ -441,15 +453,17 @@ void SteganographyActivity::render(RenderLock&&) {
       renderer.drawCenteredText(UI_10_FONT_ID, pageHeight / 2,
                                 "No hidden message found");
     } else {
-      auto lines =
-          renderer.wrappedText(UI_10_FONT_ID, messageBuffer, maxWidth, 0);
-      totalLines = static_cast<int>(lines.size());
+      if (linesCacheDirty) {
+        cachedLines = renderer.wrappedText(UI_10_FONT_ID, messageBuffer, maxWidth, 0);
+        linesCacheDirty = false;
+      }
+      totalLines = static_cast<int>(cachedLines.size());
 
       int y = contentTop;
       for (int i = scrollOffset;
            i < scrollOffset + visibleLines && i < totalLines; i++) {
         renderer.drawText(UI_10_FONT_ID, metrics.contentSidePadding, y,
-                          lines[i].c_str());
+                          cachedLines[i].c_str());
         y += lineH;
       }
 

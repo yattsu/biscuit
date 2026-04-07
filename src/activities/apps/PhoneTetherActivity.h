@@ -35,6 +35,7 @@ class PhoneTetherActivity final : public Activity {
   bool scanInitialized = false;
   bool needsInit = false;
   unsigned long lastScanTime = 0;
+  char bleError[24] = {};  // non-empty when BLE init failed
 
   // RSSI history for graph
   static constexpr int HISTORY_SIZE = 30;

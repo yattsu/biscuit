@@ -119,8 +119,34 @@ int SdEncryptionActivity::countEligible(bool forEncrypt) const {
   return count;
 }
 
+// ENC-004 helper: returns true if any .benc files exist in /biscuit/
+bool SdEncryptionActivity::hasEncryptedFiles() const {
+  HalFile dir = Storage.open(BISCUIT_DIR);
+  if (!dir) return false;
+
+  HalFile entry;
+  while ((entry = dir.openNextFile())) {
+    if (entry.isDirectory()) { entry.close(); continue; }
+
+    char name[128];
+    entry.getName(name, sizeof(name));
+    entry.close();
+
+    if (name[0] == '\0' || name[0] == '.') continue;
+
+    size_t len = strlen(name);
+    if (len > 5 && strcmp(name + len - 5, ".benc") == 0) {
+      dir.close();
+      return true;
+    }
+  }
+  dir.close();
+  return false;
+}
+
 // Encrypt a single file.  path must be an absolute path inside /biscuit/.
-// Output is written to path + ".benc", original is deleted on success.
+// Output is written to a temp file first; original is only deleted once the
+// temp file has been fully flushed and closed (ENC-002, ENC-003, ENC-005).
 bool SdEncryptionActivity::encryptFile(const char* path, const uint8_t key[32]) {
   // --- Read source ---
   HalFile src = Storage.open(path);
@@ -185,33 +211,47 @@ bool SdEncryptionActivity::encryptFile(const char* path, const uint8_t key[32]) 
   memset(plain, 0, padded);
   free(plain);
 
-  // --- Write .benc file ---
-  char outPath[256];
+  // --- Write to temp file first (ENC-002: atomic rename pattern) ---
+  // Temp name: "<path>.benc.tmp"
+  char tmpPath[264];
+  snprintf(tmpPath, sizeof(tmpPath), "%s.benc.tmp", path);
+  char outPath[264];
   snprintf(outPath, sizeof(outPath), "%s.benc", path);
 
-  HalFile dst = Storage.open(outPath, O_WRITE | O_CREAT | O_TRUNC);
+  HalFile dst = Storage.open(tmpPath, O_WRITE | O_CREAT | O_TRUNC);
   if (!dst) {
     memset(cipher, 0, padded);
     free(cipher);
     return false;
   }
 
-  dst.write(reinterpret_cast<const uint8_t*>(MAGIC), MAGIC_LEN);
-  dst.write(iv, IV_LEN);
-  dst.write(cipher, padded);
+  // ENC-005: check every write return value
+  bool writeOk =
+      dst.write(reinterpret_cast<const uint8_t*>(MAGIC), MAGIC_LEN) == MAGIC_LEN &&
+      dst.write(iv, IV_LEN) == IV_LEN &&
+      dst.write(cipher, padded) == static_cast<int>(padded);
+
   dst.flush();
   dst.close();
 
   memset(cipher, 0, padded);
   free(cipher);
 
-  // --- Delete original ---
+  // ENC-003: if any write failed, remove the partial temp file and bail
+  if (!writeOk) {
+    Storage.remove(tmpPath);
+    return false;
+  }
+
+  // --- Atomically replace: delete original, rename temp → .benc (ENC-002) ---
   Storage.remove(path);
+  Storage.rename(tmpPath, outPath);
   return true;
 }
 
 // Decrypt a single .benc file.  path points to the .benc file.
-// Output is written to the original name (path minus ".benc"), .benc deleted on success.
+// Output is written to a temp file first; the .benc is only deleted once
+// the temp file has been fully flushed and closed (ENC-002, ENC-003, ENC-005).
 bool SdEncryptionActivity::decryptFile(const char* path, const uint8_t key[32]) {
   HalFile src = Storage.open(path);
   if (!src) return false;
@@ -284,20 +324,20 @@ bool SdEncryptionActivity::decryptFile(const char* path, const uint8_t key[32]) 
   free(raw);
 
   // Validate and strip PKCS7 padding
-  uint8_t padVal = plain[cipherLen - 1];
-  if (padVal == 0 || padVal > 16) {
+  uint8_t padVal2 = plain[cipherLen - 1];
+  if (padVal2 == 0 || padVal2 > 16) {
     memset(plain, 0, cipherLen);
     free(plain);
     return false;
   }
-  for (uint8_t i = 1; i <= padVal; i++) {
-    if (plain[cipherLen - i] != padVal) {
+  for (uint8_t i = 1; i <= padVal2; i++) {
+    if (plain[cipherLen - i] != padVal2) {
       memset(plain, 0, cipherLen);
       free(plain);
       return false;
     }
   }
-  uint32_t plainLen = cipherLen - padVal;
+  uint32_t plainLen = cipherLen - padVal2;
 
   // Derive original filename: strip ".benc" suffix
   size_t pathLen = strlen(path);
@@ -308,27 +348,38 @@ bool SdEncryptionActivity::decryptFile(const char* path, const uint8_t key[32]) 
   }
   char outPath[256];
   size_t copyLen = pathLen - 5;  // strip ".benc"
-  if (copyLen >= sizeof(outPath)) copyLen = sizeof(outPath) - 1;
+  if (copyLen >= sizeof(outPath) - 4) copyLen = sizeof(outPath) - 5;  // leave room for ".tmp"
   memcpy(outPath, path, copyLen);
   outPath[copyLen] = '\0';
 
-  // Write decrypted content
-  HalFile dst = Storage.open(outPath, O_WRITE | O_CREAT | O_TRUNC);
+  // --- Write to temp file first (ENC-002: atomic rename pattern) ---
+  char tmpPath[264];
+  snprintf(tmpPath, sizeof(tmpPath), "%s.tmp", outPath);
+
+  HalFile dst = Storage.open(tmpPath, O_WRITE | O_CREAT | O_TRUNC);
   if (!dst) {
     memset(plain, 0, cipherLen);
     free(plain);
     return false;
   }
 
-  dst.write(plain, plainLen);
+  // ENC-005: check write return value
+  bool writeOk = dst.write(plain, plainLen) == static_cast<int>(plainLen);
   dst.flush();
   dst.close();
 
   memset(plain, 0, cipherLen);
   free(plain);
 
-  // Remove encrypted file
+  // ENC-003: if write failed, remove partial temp and bail (leave .benc intact)
+  if (!writeOk) {
+    Storage.remove(tmpPath);
+    return false;
+  }
+
+  // --- Atomically replace: delete .benc, rename temp → original (ENC-002) ---
   Storage.remove(path);
+  Storage.rename(tmpPath, outPath);
   return true;
 }
 
@@ -343,10 +394,7 @@ bool SdEncryptionActivity::encryptAll(const uint8_t key[32]) {
     return false;
   }
 
-  // Collect eligible filenames first (iterator stability after delete is not guaranteed)
-  static constexpr int MAX_FILES = 32;
-  static constexpr int NAME_MAX  = 128;
-  char names[MAX_FILES][NAME_MAX];
+  // ENC-001: use class member fileNames[] instead of a local 4 KB stack array
   int count = 0;
 
   HalFile entry;
@@ -360,7 +408,7 @@ bool SdEncryptionActivity::encryptAll(const uint8_t key[32]) {
     if (name[0] == '\0' || name[0] == '.') continue;
     if (!isEligibleExt(name)) continue;
 
-    snprintf(names[count], NAME_MAX, "%s", name);
+    snprintf(fileNames[count], NAME_MAX, "%s", name);
     count++;
   }
   dir.close();
@@ -369,10 +417,10 @@ bool SdEncryptionActivity::encryptAll(const uint8_t key[32]) {
 
   for (int i = 0; i < count; i++) {
     char fullPath[256];
-    snprintf(fullPath, sizeof(fullPath), "%s/%s", BISCUIT_DIR, names[i]);
+    snprintf(fullPath, sizeof(fullPath), "%s/%s", BISCUIT_DIR, fileNames[i]);
 
     if (!encryptFile(fullPath, key)) {
-      snprintf(errorMsg, sizeof(errorMsg), "Failed: %.32s", names[i]);
+      snprintf(errorMsg, sizeof(errorMsg), "Failed: %.32s", fileNames[i]);
       hadError = true;
       // Continue with remaining files — partial encryption is still useful
     }
@@ -403,9 +451,7 @@ bool SdEncryptionActivity::decryptAll(const uint8_t key[32]) {
     return false;
   }
 
-  static constexpr int MAX_FILES = 32;
-  static constexpr int NAME_MAX  = 128;
-  char names[MAX_FILES][NAME_MAX];
+  // ENC-001: use class member fileNames[] instead of a local 4 KB stack array
   int count = 0;
 
   HalFile entry;
@@ -421,7 +467,7 @@ bool SdEncryptionActivity::decryptAll(const uint8_t key[32]) {
     size_t len = strlen(name);
     if (len <= 5 || strcmp(name + len - 5, ".benc") != 0) continue;
 
-    snprintf(names[count], NAME_MAX, "%s", name);
+    snprintf(fileNames[count], NAME_MAX, "%s", name);
     count++;
   }
   dir.close();
@@ -430,10 +476,10 @@ bool SdEncryptionActivity::decryptAll(const uint8_t key[32]) {
 
   for (int i = 0; i < count; i++) {
     char fullPath[256];
-    snprintf(fullPath, sizeof(fullPath), "%s/%s", BISCUIT_DIR, names[i]);
+    snprintf(fullPath, sizeof(fullPath), "%s/%s", BISCUIT_DIR, fileNames[i]);
 
     if (!decryptFile(fullPath, key)) {
-      snprintf(errorMsg, sizeof(errorMsg), "Failed: %.32s", names[i]);
+      snprintf(errorMsg, sizeof(errorMsg), "Failed: %.32s", fileNames[i]);
       hadError = true;
     }
     processedFiles++;
@@ -457,6 +503,34 @@ void SdEncryptionActivity::showMessage(const char* msg, unsigned long durationMs
   requestUpdate();
 }
 
+// ENC-004: phase 2 — user has verified current PIN; now ask for the new one
+void SdEncryptionActivity::launchChangePinPhase2() {
+  startActivityForResult(
+      std::make_unique<KeyboardEntryActivity>(renderer, mappedInput, "Enter new PIN", "", 32, true),
+      [this](const ActivityResult& result) {
+        changePinPhase2 = false;
+
+        if (result.isCancelled) {
+          memset(oldKey, 0, sizeof(oldKey));
+          return;
+        }
+        const auto& newPin = std::get<KeyboardResult>(result.data).text;
+        if (newPin.empty()) {
+          memset(oldKey, 0, sizeof(oldKey));
+          showMessage("PIN cannot be empty");
+          return;
+        }
+
+        uint8_t newKey[KEY_LEN];
+        deriveKey(newPin.c_str(), newKey);
+        saveVerifyToken(newKey);
+        memset(newKey, 0, sizeof(newKey));
+        memset(oldKey, 0, sizeof(oldKey));
+
+        showMessage("PIN changed");
+      });
+}
+
 // ---------------------------------------------------------------------------
 // Lifecycle
 // ---------------------------------------------------------------------------
@@ -471,10 +545,14 @@ void SdEncryptionActivity::onEnter() {
   errorMsg[0] = '\0';
   msgBuf[0] = '\0';
   msgUntilMs = 0;
+  changePinPhase2 = false;
+  memset(oldKey, 0, sizeof(oldKey));
   requestUpdate();
 }
 
 void SdEncryptionActivity::onExit() {
+  // Wipe any sensitive key material that might linger
+  memset(oldKey, 0, sizeof(oldKey));
   Activity::onExit();
 }
 
@@ -505,6 +583,47 @@ void SdEncryptionActivity::loop() {
     }
     if (mappedInput.wasReleased(MappedInputManager::Button::Confirm)) {
       const int captured = menuIndex;
+
+      if (captured == 2) {
+        // ENC-004: Change PIN — two-phase flow.
+        // Phase 1: verify current PIN.
+        startActivityForResult(
+            std::make_unique<KeyboardEntryActivity>(
+                renderer, mappedInput, "Enter current PIN", "", 32, true),
+            [this](const ActivityResult& result) {
+              if (result.isCancelled) return;
+              const auto& pin = std::get<KeyboardResult>(result.data).text;
+              if (pin.empty()) return;
+
+              uint8_t key[KEY_LEN];
+              deriveKey(pin.c_str(), key);
+
+              // Guard: refuse if encrypted files exist (they can't be re-keyed)
+              if (hasEncryptedFiles()) {
+                memset(key, 0, sizeof(key));
+                showMessage("Decrypt files first");
+                return;
+              }
+
+              // Verify token exists and matches
+              if (Storage.exists(VERIFY_PATH) && !verifyPin(key)) {
+                memset(key, 0, sizeof(key));
+                showMessage("Wrong PIN");
+                return;
+              }
+
+              // Correct PIN (or no token yet) — save key for phase 2
+              memcpy(oldKey, key, KEY_LEN);
+              memset(key, 0, sizeof(key));
+              changePinPhase2 = true;
+
+              // Phase 2: ask for the new PIN
+              launchChangePinPhase2();
+            });
+        return;
+      }
+
+      // Encrypt (0) or Decrypt (1)
       startActivityForResult(
           std::make_unique<KeyboardEntryActivity>(renderer, mappedInput, "Enter PIN", "", 32, true),
           [this, captured](const ActivityResult& result) {
@@ -526,26 +645,12 @@ void SdEncryptionActivity::loop() {
               // Encrypt
               lastOpEncrypt = true;
               ok = encryptAll(key);
-            } else if (captured == 1) {
+            } else {
               // Decrypt
               lastOpEncrypt = false;
               ok = decryptAll(key);
-            } else {
-              // Change PIN: only update verification token — files stay encrypted
-              lastOpEncrypt = true;
-              if (verifyPin(key)) {
-                // Same PIN: nothing meaningful to change to
-                // Ask for new PIN via a second keyboard sub-activity is awkward inside a
-                // result handler.  Use a simple approach: save new token right away since
-                // the caller already supplied the new PIN (same flow as encrypt).
-                saveVerifyToken(key);
-                ok = true;
-              } else {
-                snprintf(errorMsg, sizeof(errorMsg), "Wrong current PIN");
-                hadError = true;
-                ok = false;
-              }
             }
+            (void)ok;
 
             // Wipe key from stack immediately
             memset(key, 0, sizeof(key));
