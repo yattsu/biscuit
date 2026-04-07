@@ -345,13 +345,15 @@ void HuntActivity::loop() {
                 requestUpdate();
                 return;
             }
-            if (mappedInput.wasReleased(MappedInputManager::Button::Down)) {
+            if (mappedInput.wasReleased(MappedInputManager::Button::Down) ||
+                mappedInput.wasReleased(MappedInputManager::Button::Right)) {
                 if (capCount > 0) {
                     capIndex = ButtonNavigator::nextIndex(capIndex, capCount);
                     requestUpdate();
                 }
             }
-            if (mappedInput.wasReleased(MappedInputManager::Button::Up)) {
+            if (mappedInput.wasReleased(MappedInputManager::Button::Up) ||
+                mappedInput.wasReleased(MappedInputManager::Button::Left)) {
                 if (capCount > 0) {
                     capIndex = ButtonNavigator::previousIndex(capIndex, capCount);
                     requestUpdate();
@@ -378,13 +380,15 @@ void HuntActivity::loop() {
                 requestUpdate();
                 return;
             }
-            if (mappedInput.wasReleased(MappedInputManager::Button::Down)) {
+            if (mappedInput.wasReleased(MappedInputManager::Button::Down) ||
+                mappedInput.wasReleased(MappedInputManager::Button::Right)) {
                 if (clientCount2 > 0) {
                     clientListIndex = ButtonNavigator::nextIndex(clientListIndex, clientCount2);
                     requestUpdate();
                 }
             }
-            if (mappedInput.wasReleased(MappedInputManager::Button::Up)) {
+            if (mappedInput.wasReleased(MappedInputManager::Button::Up) ||
+                mappedInput.wasReleased(MappedInputManager::Button::Left)) {
                 if (clientCount2 > 0) {
                     clientListIndex = ButtonNavigator::previousIndex(clientListIndex, clientCount2);
                     requestUpdate();
@@ -460,7 +464,7 @@ void HuntActivity::renderSelectCategory() const {
         [](int) -> std::string { return ""; }
     );
 
-    const auto labels = mappedInput.mapLabels("Back", "Open", "", "");
+    const auto labels = mappedInput.mapLabels("Back", "Open", "^", "v");
     GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
 }
 
@@ -514,7 +518,7 @@ void HuntActivity::renderSelectTarget() const {
             });
     }
 
-    const auto labels = mappedInput.mapLabels("Back", "Select", "Up", "Down");
+    const auto labels = mappedInput.mapLabels("Back", "Select", "^", "v");
     GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
 }
 
@@ -631,6 +635,7 @@ void HuntActivity::renderProfile() const {
     // Button hints
     const auto labels = mappedInput.mapLabels("Back", "Assess", "", "");
     GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
+    GUI.drawSideButtonHints(renderer, "^", "v");
 }
 
 // ---------------------------------------------------------------------------
@@ -668,7 +673,7 @@ void HuntActivity::renderCapabilities() const {
             });
     }
 
-    const auto labels = mappedInput.mapLabels("Back", "Launch", "Up", "Down");
+    const auto labels = mappedInput.mapLabels("Back", "Launch", "^", "v");
     GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
 }
 
@@ -717,6 +722,6 @@ void HuntActivity::renderClientList() const {
             });
     }
 
-    const auto labels = mappedInput.mapLabels("Back", "Select", "Up", "Down");
+    const auto labels = mappedInput.mapLabels("Back", "Select", "^", "v");
     GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
 }

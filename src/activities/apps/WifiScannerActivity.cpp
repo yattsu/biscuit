@@ -803,8 +803,9 @@ void WifiScannerActivity::render(RenderLock&&) {
         });
   }
 
-  const auto labels = mappedInput.mapLabels(tr(STR_EXIT), tr(STR_SELECT), tr(STR_SORT_SIGNAL), tr(STR_SCAN_AGAIN));
+  const auto labels = mappedInput.mapLabels(tr(STR_EXIT), tr(STR_SELECT), "Sort", "");
   GUI.drawButtonHints(renderer, labels.btn1, "Hold: Views", labels.btn3, labels.btn4);
+  GUI.drawSideButtonHints(renderer, "^", "v");
 
   renderer.displayBuffer();
 }

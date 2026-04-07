@@ -257,7 +257,7 @@ void MedicalCardActivity::renderDisplay() const {
   const int noteY = pageHeight - metrics.buttonHintsHeight - lineHSm - 8;
   renderer.drawCenteredText(SMALL_FONT_ID, noteY, "Card stays visible when device is off");
 
-  const auto labels = mappedInput.mapLabels("Back", "Edit", "Up", "Down");
+  const auto labels = mappedInput.mapLabels("Back", "Edit", "^", "v");
   GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
 }
 
@@ -287,7 +287,7 @@ void MedicalCardActivity::renderEditSelect() const {
                  return buf;
                });
 
-  const auto labels = mappedInput.mapLabels("Back", "Edit", "Up", "Down");
+  const auto labels = mappedInput.mapLabels("Back", "Edit", "^", "v");
   GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
 }
 

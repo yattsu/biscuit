@@ -289,16 +289,18 @@ void MilitaryTheme::drawButtonHints(GfxRenderer& renderer, const char* btn1, con
       // Sharp rect border (no rounding)
       renderer.drawRect(x, y, buttonWidth, buttonHeight);
 
-      // Format as [LABEL]
-      std::string bracketLabel = std::string("[") + labels[i] + "]";
-      // Uppercase
-      for (size_t j = 1; j < bracketLabel.size() - 1; j++) {
-        bracketLabel[j] = static_cast<char>(toupper(static_cast<unsigned char>(bracketLabel[j])));
-      }
+      if (!BaseTheme::drawArrowIfNeeded(renderer, labels[i], x + buttonWidth / 2, y + buttonHeight / 2, 6, true)) {
+        // Format as [LABEL]
+        std::string bracketLabel = std::string("[") + labels[i] + "]";
+        // Uppercase
+        for (size_t j = 1; j < bracketLabel.size() - 1; j++) {
+          bracketLabel[j] = static_cast<char>(toupper(static_cast<unsigned char>(bracketLabel[j])));
+        }
 
-      const int textWidth = renderer.getTextWidth(UI_10_FONT_ID, bracketLabel.c_str());
-      const int textX = x + (buttonWidth - 1 - textWidth) / 2;
-      renderer.drawText(UI_10_FONT_ID, textX, y + textYOffset, bracketLabel.c_str());
+        const int textWidth = renderer.getTextWidth(UI_10_FONT_ID, bracketLabel.c_str());
+        const int textX = x + (buttonWidth - 1 - textWidth) / 2;
+        renderer.drawText(UI_10_FONT_ID, textX, y + textYOffset, bracketLabel.c_str());
+      }
     }
   }
 

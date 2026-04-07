@@ -287,7 +287,7 @@ void TrackerDetectorActivity::renderIdle() const {
   renderer.drawCenteredText(SMALL_FONT_ID, centerY + 60,
                             "Press Confirm to start monitoring.");
 
-  const auto labels = mappedInput.mapLabels(tr(STR_EXIT), tr(STR_START), tr(STR_DIR_UP), tr(STR_DIR_DOWN));
+  const auto labels = mappedInput.mapLabels(tr(STR_EXIT), tr(STR_START), "^", "v");
   GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
 }
 
@@ -349,7 +349,7 @@ void TrackerDetectorActivity::renderMonitoring() const {
   }
   renderer.drawText(SMALL_FONT_ID, 16, pageHeight - metrics.buttonHintsHeight - 20, statusBuf);
 
-  const auto labels = mappedInput.mapLabels(tr(STR_STOP), "", tr(STR_DIR_UP), tr(STR_DIR_DOWN));
+  const auto labels = mappedInput.mapLabels(tr(STR_STOP), "", "^", "v");
   GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
 }
 
@@ -401,6 +401,6 @@ void TrackerDetectorActivity::renderAlert() const {
         });
   }
 
-  const auto labels = mappedInput.mapLabels(tr(STR_STOP), tr(STR_CONFIRM), tr(STR_DIR_UP), tr(STR_DIR_DOWN));
+  const auto labels = mappedInput.mapLabels(tr(STR_STOP), tr(STR_CONFIRM), "^", "v");
   GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
 }

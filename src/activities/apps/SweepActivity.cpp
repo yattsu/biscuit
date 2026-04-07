@@ -402,6 +402,6 @@ void SweepActivity::renderResults() const {
         });
   }
 
-  const auto labels = mappedInput.mapLabels("Back", "", "Up", "Down");
+  const auto labels = mappedInput.mapLabels("Back", "", "^", "v");
   GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
 }

@@ -767,7 +767,7 @@ void NetworkMonitorActivity::renderRogueResults() {
         });
   }
 
-  const auto labels = mappedInput.mapLabels("Exit", "Detail", "Up", "Down");
+  const auto labels = mappedInput.mapLabels("Exit", "Detail", "^", "v");
   GUI.drawButtonHints(renderer, labels.btn1, "Hold:Frame Mon", labels.btn3, labels.btn4);
 }
 

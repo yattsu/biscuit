@@ -398,7 +398,7 @@ void GhostActivity::renderDashboard() const {
     }
 
     // Button hints
-    const auto labels = mappedInput.mapLabels("Back", "OK", "Up", "Down");
+    const auto labels = mappedInput.mapLabels("Back", "OK", "^", "v");
     GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
 }
 
@@ -460,7 +460,7 @@ void GhostActivity::renderSettings() const {
         [&labels](int i) -> std::string { return labels[i]; }
     );
 
-    const auto btnLabels = mappedInput.mapLabels("Back", "Toggle", "Up", "Down");
+    const auto btnLabels = mappedInput.mapLabels("Back", "Toggle", "^", "v");
     GUI.drawButtonHints(renderer, btnLabels.btn1, btnLabels.btn2, btnLabels.btn3, btnLabels.btn4);
 }
 

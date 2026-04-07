@@ -319,7 +319,7 @@ void SsidChannelActivity::renderModeSelect() const {
       [](int i) -> std::string { return kModeLabels[i]; },
       [](int i) -> std::string { return kModeSubtitles[i]; });
 
-  const auto labels = mappedInput.mapLabels("Back", "Select", "Up", "Down");
+  const auto labels = mappedInput.mapLabels("Back", "Select", "^", "v");
   GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
 }
 
@@ -397,6 +397,6 @@ void SsidChannelActivity::renderReceiving() const {
         });
   }
 
-  const auto labels = mappedInput.mapLabels("Back", "", "Up", "Down");
+  const auto labels = mappedInput.mapLabels("Back", "", "^", "v");
   GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
 }

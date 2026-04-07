@@ -696,7 +696,7 @@ void UsbHidActivity::render(RenderLock&&) {
           [](int) -> UIIcon { return UIIcon::File; },
           [](int) -> std::string { return ""; });
 
-      const auto labels = mappedInput.mapLabels("Back", "Load", "Up", "Down");
+      const auto labels = mappedInput.mapLabels("Back", "Load", "^", "v");
       GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
     }
     renderer.displayBuffer();
@@ -737,7 +737,7 @@ void UsbHidActivity::render(RenderLock&&) {
              static_cast<int>(script.size()), estimatedMs / 1000);
     renderer.drawCenteredText(SMALL_FONT_ID, hintsTop - 20, statBuf);
 
-    const auto labels = mappedInput.mapLabels("Back", "Continue", "Up", "Down");
+    const auto labels = mappedInput.mapLabels("Back", "Continue", "^", "v");
     GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
     renderer.displayBuffer();
     return;

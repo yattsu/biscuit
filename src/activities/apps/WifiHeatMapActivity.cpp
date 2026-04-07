@@ -240,7 +240,7 @@ void WifiHeatMapActivity::render(RenderLock&&) {
           });
     }
 
-    const auto labels = mappedInput.mapLabels("Exit", "Done", "Up", "Down");
+    const auto labels = mappedInput.mapLabels("Exit", "Done", "^", "v");
     GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
 
   } else {  // SUMMARY

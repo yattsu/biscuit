@@ -245,7 +245,7 @@ void CasinoActivity::renderLobby() {
       [](int i) { return std::string(games[i]); },
       [resetDesc](int i) { return std::string(i == 6 ? resetDesc : descs[i]); });
 
-  const auto labels = mappedInput.mapLabels("Exit", "Play", "Up", "Down");
+  const auto labels = mappedInput.mapLabels("Exit", "Play", "^", "v");
   GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
 }
 
@@ -1028,7 +1028,7 @@ void CasinoActivity::slotsRenderMenu() {
       [](int i) { return std::string(CasinoActivity::MACHINES[i].name); },
       [](int i) { return std::string(CasinoActivity::MACHINES[i].description); });
 
-  const auto labels = mappedInput.mapLabels("Back", "Select", "Up", "Down");
+  const auto labels = mappedInput.mapLabels("Back", "Select", "^", "v");
   GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
 }
 
@@ -1233,7 +1233,7 @@ void CasinoActivity::slotsRenderPowerups() {
     y += 50;
   }
 
-  const auto labels = mappedInput.mapLabels("Back", "Buy", "Up", "Down");
+  const auto labels = mappedInput.mapLabels("Back", "Buy", "^", "v");
   GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
 }
 
@@ -2429,7 +2429,7 @@ void CasinoActivity::lbRenderMainMenu() {
     renderer.drawCenteredText(SMALL_FONT_ID, menuY + 3 * menuSpacing + 10, "Not enough credits!");
   }
 
-  const auto labels = mappedInput.mapLabels("Back", "Select", "Up", "Down");
+  const auto labels = mappedInput.mapLabels("Back", "Select", "^", "v");
   GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
 }
 

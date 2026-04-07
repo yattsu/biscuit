@@ -384,7 +384,7 @@ void SteganographyActivity::render(RenderLock&&) {
                                    : "Read hidden text from a BMP image";
                  });
 
-    const auto labels = mappedInput.mapLabels("Back", "Select", "Up", "Down");
+    const auto labels = mappedInput.mapLabels("Back", "Select", "^", "v");
     GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
     renderer.displayBuffer();
     return;
@@ -411,7 +411,7 @@ void SteganographyActivity::render(RenderLock&&) {
     }
 
     const char* action = (mode == EMBED) ? "Embed" : "Extract";
-    const auto labels = mappedInput.mapLabels("Back", action, "Up", "Down");
+    const auto labels = mappedInput.mapLabels("Back", action, "^", "v");
     GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
     renderer.displayBuffer();
     return;
@@ -481,7 +481,7 @@ void SteganographyActivity::render(RenderLock&&) {
       }
     }
 
-    const auto labels = mappedInput.mapLabels("Back", "", "Up", "Down");
+    const auto labels = mappedInput.mapLabels("Back", "", "^", "v");
     GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
     renderer.displayBuffer();
     return;

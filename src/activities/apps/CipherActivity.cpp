@@ -206,7 +206,7 @@ void CipherActivity::renderSelect() const {
   GUI.drawList(renderer, Rect{0, listTop, pageWidth, listH}, CIPHER_COUNT, cipherIndex,
     [](int i) -> std::string { return CipherActivity::CIPHER_NAMES[i]; });
 
-  const auto labels = mappedInput.mapLabels("Back", "Select", "Up", "Down");
+  const auto labels = mappedInput.mapLabels("Back", "Select", "^", "v");
   GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
 }
 

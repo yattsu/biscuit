@@ -331,7 +331,7 @@ void SdFileBrowserActivity::render(RenderLock&&) {
           });
     }
 
-    const auto labels = mappedInput.mapLabels("Back", "Open", "Up", "Down");
+    const auto labels = mappedInput.mapLabels("Back", "Open", "^", "v");
     GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
     GUI.drawSideButtonHints(renderer, "Info", "Delete");
 

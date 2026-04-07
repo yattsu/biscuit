@@ -329,7 +329,7 @@ void MdnsBrowserActivity::render(RenderLock&&) {
             return SERVICE_TYPES[index - 1].description;
           });
 
-      const auto labels = mappedInput.mapLabels("Back", "Scan", "Up", "Down");
+      const auto labels = mappedInput.mapLabels("Back", "Scan", "^", "v");
       GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
       break;
     }
@@ -380,7 +380,7 @@ void MdnsBrowserActivity::render(RenderLock&&) {
             });
       }
 
-      const auto labels = mappedInput.mapLabels("Back", "Detail", "Up", "Down");
+      const auto labels = mappedInput.mapLabels("Back", "Detail", "^", "v");
       GUI.drawButtonHints(renderer, labels.btn1, "Hold: CSV", labels.btn3, labels.btn4);
       break;
     }

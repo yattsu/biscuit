@@ -286,7 +286,7 @@ void ProbeSnifferActivity::render(RenderLock&&) {
         });
   }
 
-  const auto labels = mappedInput.mapLabels(tr(STR_EXIT), tr(STR_SELECT), tr(STR_DIR_UP), tr(STR_DIR_DOWN));
+  const auto labels = mappedInput.mapLabels(tr(STR_EXIT), tr(STR_SELECT), "^", "v");
   GUI.drawButtonHints(renderer, labels.btn1, "Hold:CSV", labels.btn3, labels.btn4);
   renderer.displayBuffer();
 }

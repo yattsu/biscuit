@@ -167,7 +167,7 @@ void HabitTrackerActivity::renderToday() const {
       });
   }
 
-  const auto labels = mappedInput.mapLabels("Back", "Toggle", "Up", "Down");
+  const auto labels = mappedInput.mapLabels("Back", "Toggle", "^", "v");
   GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
 }
 
@@ -185,6 +185,6 @@ void HabitTrackerActivity::renderEditList() const {
       return "+ Add Habit";
     });
 
-  const auto labels = mappedInput.mapLabels("Back", "Select", "Up", "Down");
+  const auto labels = mappedInput.mapLabels("Back", "Select", "^", "v");
   GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
 }

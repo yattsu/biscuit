@@ -160,7 +160,7 @@ void FlashcardActivity::renderDeckSelect() const {
         return (slash != std::string::npos) ? p.substr(slash + 1) : p;
       });
   }
-  const auto labels = mappedInput.mapLabels("Back", "Load", "Up", "Down");
+  const auto labels = mappedInput.mapLabels("Back", "Load", "^", "v");
   GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
 }
 

@@ -181,7 +181,7 @@ void CredentialViewerActivity::render(RenderLock&&) {
             return creds[i].ssid + " - " + creds[i].timestamp;
           });
 
-      const auto labels = mappedInput.mapLabels("Exit", "Hold:Delete", "Up", "Down");
+      const auto labels = mappedInput.mapLabels("Exit", "Hold:Delete", "^", "v");
       GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
       break;
     }

@@ -133,7 +133,7 @@ void WifiCredsActivity::render(RenderLock&&) {
 
     renderer.drawCenteredText(SMALL_FONT_ID, y + 8, "Up/Down: change  Confirm: generate QR");
 
-    const auto labels = mappedInput.mapLabels(tr(STR_BACK), "Select", "Up", "Down");
+    const auto labels = mappedInput.mapLabels(tr(STR_BACK), "Select", "^", "v");
     GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
 
   } else if (state == DISPLAY_QR) {

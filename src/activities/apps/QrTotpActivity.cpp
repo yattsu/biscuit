@@ -160,7 +160,7 @@ void QrTotpActivity::render(RenderLock&&) {
           [this](int i) -> std::string { return accounts[i].name; });
     }
 
-    const auto labels = mappedInput.mapLabels("Back", accountCount > 0 ? "Select" : "", "Up", "Down");
+    const auto labels = mappedInput.mapLabels("Back", accountCount > 0 ? "Select" : "", "^", "v");
     GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
 
   } else {

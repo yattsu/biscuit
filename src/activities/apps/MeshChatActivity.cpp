@@ -363,15 +363,29 @@ void MeshChatActivity::renderChatView() const {
     xSemaphoreGive(peersMux);
   }
 
-  // MESH-001: copy message ring-buffer fields under the spinlock to avoid a data
-  // race with addMessage() which may be called from the WiFi task.
+  // MESH-001 / MESH-005: copy only visible messages under the spinlock.
+  // The old approach copied the full ring buffer (Message[30] = ~6.8KB on the
+  // stack), which overflows the 8KB FreeRTOS render task stack on ESP32-C3.
+  // We now copy at most MAX_VISIBLE entries, cutting peak stack use to ~3.6KB.
+  static constexpr int MAX_VISIBLE = 16;  // screen fits ~15 lines max
+  Message visibleMsgs[MAX_VISIBLE];       // ~3.6KB instead of 6.8KB
+  int visibleCount = 0;
   int localCount, localHead, localScroll;
-  Message localMessages[MAX_MESSAGES];
+
   portENTER_CRITICAL(&msgMux);
   localCount  = messageCount;
   localHead   = messageHead;
   localScroll = scrollOffset;
-  if (localCount > 0) memcpy(localMessages, messages, sizeof(messages));
+
+  if (localCount > 0) {
+    int maxDraw = localCount - localScroll;
+    if (maxDraw > MAX_VISIBLE) maxDraw = MAX_VISIBLE;
+    int msgIdx = (localHead - 1 - localScroll + MAX_MESSAGES) % MAX_MESSAGES;
+    for (int i = 0; i < maxDraw; i++) {
+      visibleMsgs[visibleCount++] = messages[msgIdx];
+      msgIdx = (msgIdx - 1 + MAX_MESSAGES) % MAX_MESSAGES;
+    }
+  }
   portEXIT_CRITICAL(&msgMux);
 
   char subtitle[48];
@@ -391,14 +405,11 @@ void MeshChatActivity::renderChatView() const {
     renderer.drawCenteredText(UI_10_FONT_ID, (contentTop + contentBottom) / 2,
                               "No messages yet. Press Confirm to send.");
   } else {
-    // Render messages from newest (bottom) to oldest (top)
+    // Render messages from newest (bottom) to oldest (top).
+    // visibleMsgs[0] is the newest visible message; iterate forward to go older.
     int y = contentBottom - lineH;
-    int msgIdx = (localHead - 1 - localScroll + MAX_MESSAGES) % MAX_MESSAGES;
-    int drawn = 0;
-    int maxDraw = localCount - localScroll;
-
-    while (drawn < maxDraw && y >= contentTop) {
-      const Message& msg = localMessages[msgIdx];
+    for (int drawn = 0; drawn < visibleCount && y >= contentTop; drawn++) {
+      const Message& msg = visibleMsgs[drawn];
 
       char line[240];
       if (msg.isLocal) {
@@ -409,13 +420,12 @@ void MeshChatActivity::renderChatView() const {
 
       renderer.drawText(SMALL_FONT_ID, 16, y, line);
       y -= lineH;
-      msgIdx = (msgIdx - 1 + MAX_MESSAGES) % MAX_MESSAGES;
-      drawn++;
     }
   }
 
-  const auto labels = mappedInput.mapLabels(tr(STR_EXIT), "Send", "Scroll", "Peers >");
+  const auto labels = mappedInput.mapLabels(tr(STR_EXIT), "Send", "", "Peers >");
   GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
+  GUI.drawSideButtonHints(renderer, "^", "v");
 }
 
 void MeshChatActivity::renderPeers() const {
@@ -462,6 +472,6 @@ void MeshChatActivity::renderPeers() const {
   renderer.drawText(SMALL_FONT_ID, metrics.contentSidePadding,
                     pageHeight - metrics.buttonHintsHeight - 22, relayStr);
 
-  const auto labels = mappedInput.mapLabels(tr(STR_BACK), "Relay", tr(STR_DIR_UP), tr(STR_DIR_DOWN));
+  const auto labels = mappedInput.mapLabels(tr(STR_BACK), "Relay", "^", "v");
   GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
 }

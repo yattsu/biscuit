@@ -37,6 +37,7 @@ void IRAM_ATTR ScanActivity::promiscCallback(void* buf, wifi_promiscuous_pkt_typ
 
 void ScanActivity::onEnter() {
     Activity::onEnter();
+    TARGETS.loadCache();   // Load cached targets from SD so idle screen shows real counts
     state = IDLE;
     phase = PAUSED;
     scanStartMs = 0;
@@ -493,8 +494,9 @@ void ScanActivity::renderCategories() const {
         [](int) -> std::string { return ""; }
     );
 
-    const auto labels = mappedInput.mapLabels("Back", "Open", "", "");
+    const auto labels = mappedInput.mapLabels("Back", "Open", "^", "v");
     GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
+    GUI.drawSideButtonHints(renderer, "^", "v");
 
     renderer.displayBuffer();
 }
@@ -560,8 +562,9 @@ void ScanActivity::renderBrowse() const {
         );
     }
 
-    const auto labels = mappedInput.mapLabels("Back", "Detail", "", "");
+    const auto labels = mappedInput.mapLabels("Back", "Detail", "^", "v");
     GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
+    GUI.drawSideButtonHints(renderer, "^", "v");
 
     renderer.displayBuffer();
 }
@@ -680,8 +683,9 @@ void ScanActivity::renderTargetDetail() const {
         }
     }
 
-    const auto labels = mappedInput.mapLabels("Back", "Hunt", "", "Export");
+    const auto labels = mappedInput.mapLabels("Back", "Hunt", "", "");
     GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
+    GUI.drawSideButtonHints(renderer, "", "Export");
 
     renderer.displayBuffer();
 }

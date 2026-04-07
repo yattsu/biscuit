@@ -318,6 +318,11 @@ void LootActivity::exportSummaryReport() {
 void LootActivity::executeDetailAction() {
     if (fileIndex < 0 || fileIndex >= fileCount) return;
 
+    if (detailAction == VIEW) {
+        // Already displaying content — no further action needed
+        return;
+    }
+
     if (detailAction == DELETE) {
         char path[96];
         if (listCategory == HANDSHAKES) {
@@ -463,6 +468,7 @@ void LootActivity::loop() {
             }
 
             if (mappedInput.wasReleased(MappedInputManager::Button::Back)) {
+                detailBuf[0] = '\0';
                 state = OVERVIEW;
                 requestUpdate();
             }
@@ -492,6 +498,7 @@ void LootActivity::loop() {
             }
 
             if (mappedInput.wasReleased(MappedInputManager::Button::Back)) {
+                detailBuf[0] = '\0';
                 state = OVERVIEW;
                 requestUpdate();
             }
@@ -500,11 +507,12 @@ void LootActivity::loop() {
 
         case ITEM_DETAIL: {
             if (mappedInput.wasReleased(MappedInputManager::Button::Confirm)) {
-                // Cycle through actions: VIEW -> EXPORT -> DELETE -> VIEW
+                // Cycle through actions: VIEW -> EXPORT -> DELETE -> EXPORT
+                // (skip VIEW on wrap — content is already displayed)
                 switch (detailAction) {
                     case VIEW:   detailAction = EXPORT; break;
                     case EXPORT: detailAction = DELETE; break;
-                    case DELETE: detailAction = VIEW;   break;
+                    case DELETE: detailAction = EXPORT; break;
                 }
                 requestUpdate();
             }
@@ -564,7 +572,7 @@ void LootActivity::renderOverview() const {
         GUI.drawPopup(renderer, detailBuf);
     }
 
-    const auto btnLabels = mappedInput.mapLabels("Back", "Select", "Up", "Down");
+    const auto btnLabels = mappedInput.mapLabels("Back", "Select", "^", "v");
     GUI.drawButtonHints(renderer, btnLabels.btn1, btnLabels.btn2, btnLabels.btn3, btnLabels.btn4);
     GUI.drawSideButtonHints(renderer, "Report", "");
 }
@@ -589,7 +597,7 @@ void LootActivity::renderFileList(const char* title) const {
             });
     }
 
-    const auto btnLabels = mappedInput.mapLabels("Back", "Detail", "Up", "Down");
+    const auto btnLabels = mappedInput.mapLabels("Back", "Detail", "^", "v");
     GUI.drawButtonHints(renderer, btnLabels.btn1, btnLabels.btn2, btnLabels.btn3, btnLabels.btn4);
 }
 
@@ -622,7 +630,7 @@ void LootActivity::renderCredentialList() const {
             });
     }
 
-    const auto btnLabels = mappedInput.mapLabels("Back", "View", "Up", "Down");
+    const auto btnLabels = mappedInput.mapLabels("Back", "View", "^", "v");
     GUI.drawButtonHints(renderer, btnLabels.btn1, btnLabels.btn2, btnLabels.btn3, btnLabels.btn4);
 }
 
@@ -668,9 +676,11 @@ void LootActivity::renderDetail() const {
         pageHeight - metrics.buttonHintsHeight - metrics.verticalSpacing - 20,
         actionBuf);
 
-    const auto btnLabels = mappedInput.mapLabels("Back", "Cycle", "", "");
+    static const char* const actionLabelsExec[] = {"", "Export", "Delete"};
+    const char* execLabel = (detailAction < 3) ? actionLabelsExec[detailAction] : "";
+    const auto btnLabels = mappedInput.mapLabels("Back", "Next", "", "");
     GUI.drawButtonHints(renderer, btnLabels.btn1, btnLabels.btn2, btnLabels.btn3, btnLabels.btn4);
-    GUI.drawSideButtonHints(renderer, "Execute", "");
+    GUI.drawSideButtonHints(renderer, execLabel, "");
 }
 
 // ---------------------------------------------------------------------------
