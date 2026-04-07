@@ -450,7 +450,7 @@ void BleKeyboardActivity::render(RenderLock&&) {
           });
     }
 
-    const auto labels = mappedInput.mapLabels("Back", scriptFiles.empty() ? "" : "Select", "Up", "Down");
+    const auto labels = mappedInput.mapLabels("Back", scriptFiles.empty() ? "" : "Select", "^", "v");
     GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
 
   } else if (state == PREVIEW) {

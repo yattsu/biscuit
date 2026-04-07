@@ -244,7 +244,7 @@ void CaptivePortalActivity::render(RenderLock&&) {
       static_cast<int>(templates.size()), selectorIndex,
       [this](int i) -> std::string { return templates[i]; }, nullptr);
 
-  const auto labels = mappedInput.mapLabels("Back", "Select", "Up", "Down");
+  const auto labels = mappedInput.mapLabels("Back", "Select", "^", "v");
   GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
   renderer.displayBuffer();
 }

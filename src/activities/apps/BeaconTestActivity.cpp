@@ -207,7 +207,7 @@ void BeaconTestActivity::render(RenderLock&&) {
         renderer, Rect{0, contentTop, pageWidth, contentHeight}, 4, modeIndex,
         [](int index) { return std::string(modeNames[index]); });
 
-    const auto labels = mappedInput.mapLabels("Back", "Select", "Up", "Down");
+    const auto labels = mappedInput.mapLabels("Back", "Select", "^", "v");
     GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
   } else {
     // RUNNING display

@@ -175,7 +175,7 @@ void AirTagTestActivity::render(RenderLock&&) {
         renderer, Rect{0, contentTop, pageWidth, contentHeight}, MODE_COUNT, modeIndex,
         [](int index) { return std::string(MODE_NAMES[index]); });
 
-    const auto labels = mappedInput.mapLabels("Back", "Select", "Up", "Down");
+    const auto labels = mappedInput.mapLabels("Back", "Select", "^", "v");
     GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
   } else {
     // SPOOFING display
