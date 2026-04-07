@@ -25,19 +25,19 @@ static const char* authTypeName(uint8_t authType) {
 
 static const char* targetTypeName(TargetType type) {
     switch (type) {
-        case TargetType::AP:     return "WiFi AP";
+        case TargetType::AP:  return "WiFi AP";
         case TargetType::STA: return "WiFi Client";
-        case TargetType::BLE:  return "BLE Device";
-        default:                      return "Unknown";
+        case TargetType::BLE: return "BLE Device";
+        default:              return "Unknown";
     }
 }
 
 static const char* targetTypePrefix(TargetType type) {
     switch (type) {
-        case TargetType::AP:     return "[AP] ";
+        case TargetType::AP:  return "[AP] ";
         case TargetType::STA: return "[CL] ";
-        case TargetType::BLE:  return "[BT] ";
-        default:                      return "[ ] ";
+        case TargetType::BLE: return "[BT] ";
+        default:              return "[ ] ";
     }
 }
 
@@ -69,33 +69,13 @@ void HuntActivity::setTarget(const uint8_t mac[6]) {
 }
 
 // ---------------------------------------------------------------------------
-// loadTargetList — fills targetList[] from DB cache
+// loadTargetListByType — fills targetList[] from DB cache for one type
 // ---------------------------------------------------------------------------
 
-void HuntActivity::loadTargetList() {
+void HuntActivity::loadTargetListByType(TargetType type) {
     targetCount = 0;
-    int c1 = 0;
-    TARGETS.getSorted(TargetType::AP, targetList, 50, c1, 0);
-    targetCount = c1;
-
-    Target* temp[50];
-    int c2 = 0;
-    int remaining = 50 - targetCount;
-    if (remaining > 0) {
-        TARGETS.getSorted(TargetType::STA, temp, remaining, c2, 0);
-        for (int i = 0; i < c2 && targetCount < 50; i++) {
-            targetList[targetCount++] = temp[i];
-        }
-    }
-
-    int c3 = 0;
-    remaining = 50 - targetCount;
-    if (remaining > 0) {
-        TARGETS.getSorted(TargetType::BLE, temp, remaining, c3, 0);
-        for (int i = 0; i < c3 && targetCount < 50; i++) {
-            targetList[targetCount++] = temp[i];
-        }
-    }
+    TARGETS.getSorted(type, targetList, 50, targetCount, 0);
+    listIndex = 0;
 }
 
 // ---------------------------------------------------------------------------
@@ -108,8 +88,24 @@ void HuntActivity::selectTarget(int index) {
     memcpy(selectedMac, current->mac, 6);
     profileScroll = 0;
     state = PROFILE_VIEW;
+    buildClientList();
     analyzeCapabilities();
     requestUpdate();
+}
+
+// ---------------------------------------------------------------------------
+// buildClientList — find STA targets associated with the current AP
+// ---------------------------------------------------------------------------
+
+void HuntActivity::buildClientList() {
+    clientCount2 = 0;
+    clientListIndex = 0;
+    if (!current) return;
+    TARGETS.forEach(TargetType::STA, [this](const Target& t) {
+        if (clientCount2 < 20 && memcmp(t.bssid, current->mac, 6) == 0) {
+            clientList[clientCount2++] = TARGETS.findByMac(t.mac);
+        }
+    });
 }
 
 // ---------------------------------------------------------------------------
@@ -174,24 +170,23 @@ void HuntActivity::analyzeCapabilities() {
 
 void HuntActivity::onEnter() {
     Activity::onEnter();
-    TARGETS.loadCache();
 
     if (hasPreselected) {
         current = TARGETS.findByMac(selectedMac);
         if (current) {
             state = PROFILE_VIEW;
             profileScroll = 0;
+            buildClientList();
             analyzeCapabilities();
         } else {
-            state = SELECT_TARGET;
+            state = SELECT_CATEGORY;
             hasPreselected = false;
+            huntCategoryIndex = 0;
         }
     } else {
-        state = SELECT_TARGET;
+        state = SELECT_CATEGORY;
+        huntCategoryIndex = 0;
     }
-
-    loadTargetList();
-    listIndex = 0;
 
     buttonNavigator.onNext([this] {
         if (state == SELECT_TARGET) {
@@ -199,6 +194,9 @@ void HuntActivity::onEnter() {
             requestUpdate();
         } else if (state == CAPABILITIES) {
             capIndex = ButtonNavigator::nextIndex(capIndex, capCount);
+            requestUpdate();
+        } else if (state == CLIENT_LIST) {
+            clientListIndex = ButtonNavigator::nextIndex(clientListIndex, clientCount2);
             requestUpdate();
         }
     });
@@ -208,6 +206,9 @@ void HuntActivity::onEnter() {
             requestUpdate();
         } else if (state == CAPABILITIES) {
             capIndex = ButtonNavigator::previousIndex(capIndex, capCount);
+            requestUpdate();
+        } else if (state == CLIENT_LIST) {
+            clientListIndex = ButtonNavigator::previousIndex(clientListIndex, clientCount2);
             requestUpdate();
         }
     });
@@ -226,9 +227,36 @@ void HuntActivity::onExit() {
 void HuntActivity::loop() {
     switch (state) {
 
-        case SELECT_TARGET: {
+        case SELECT_CATEGORY: {
             if (mappedInput.wasReleased(MappedInputManager::Button::Back)) {
                 finish();
+                return;
+            }
+            if (mappedInput.wasReleased(MappedInputManager::Button::Down) ||
+                mappedInput.wasReleased(MappedInputManager::Button::Right)) {
+                huntCategoryIndex = ButtonNavigator::nextIndex(huntCategoryIndex, 3);
+                requestUpdate();
+            }
+            if (mappedInput.wasReleased(MappedInputManager::Button::Up) ||
+                mappedInput.wasReleased(MappedInputManager::Button::Left)) {
+                huntCategoryIndex = ButtonNavigator::previousIndex(huntCategoryIndex, 3);
+                requestUpdate();
+            }
+            if (mappedInput.wasReleased(MappedInputManager::Button::Confirm)) {
+                if (huntCategoryIndex == 0)      browseType = TargetType::AP;
+                else if (huntCategoryIndex == 1) browseType = TargetType::STA;
+                else                             browseType = TargetType::BLE;
+                loadTargetListByType(browseType);
+                state = SELECT_TARGET;
+                requestUpdate();
+            }
+            break;
+        }
+
+        case SELECT_TARGET: {
+            if (mappedInput.wasReleased(MappedInputManager::Button::Back)) {
+                state = SELECT_CATEGORY;
+                requestUpdate();
                 return;
             }
             if (mappedInput.wasReleased(MappedInputManager::Button::Down) ||
@@ -276,10 +304,6 @@ void HuntActivity::loop() {
                 capIndex = 0;
                 requestUpdate();
             }
-            if (mappedInput.wasReleased(MappedInputManager::Button::Left)) {
-                state = MOVEMENT_LOG;
-                requestUpdate();
-            }
             if (mappedInput.wasReleased(MappedInputManager::Button::PageForward)) {
                 if (current) {
                     char path[64];
@@ -291,6 +315,13 @@ void HuntActivity::loop() {
                     }
                     snprintf(path, sizeof(path), "/biscuit/targets/%s.txt", macBuf);
                     TARGETS.exportProfile(current->mac, path);
+                }
+            }
+            if (mappedInput.wasReleased(MappedInputManager::Button::PageBack)) {
+                if (current && current->type == TargetType::AP && clientCount2 > 0) {
+                    clientListIndex = 0;
+                    state = CLIENT_LIST;
+                    requestUpdate();
                 }
             }
             break;
@@ -322,19 +353,41 @@ void HuntActivity::loop() {
                         fire->setTarget(current->mac);
                         fire->setAttack(cap.fireAttackType);
                         activityManager.pushActivity(std::move(fire));
-                    } else if (cap.action == CAP_TRACK) {
-                        state = MOVEMENT_LOG;
-                        requestUpdate();
                     }
+                    // CAP_TRACK: not implemented, ignore
                 }
             }
             break;
         }
 
-        case MOVEMENT_LOG: {
+        case CLIENT_LIST: {
             if (mappedInput.wasReleased(MappedInputManager::Button::Back)) {
                 state = PROFILE_VIEW;
                 requestUpdate();
+                return;
+            }
+            if (mappedInput.wasReleased(MappedInputManager::Button::Down)) {
+                if (clientCount2 > 0) {
+                    clientListIndex = ButtonNavigator::nextIndex(clientListIndex, clientCount2);
+                    requestUpdate();
+                }
+            }
+            if (mappedInput.wasReleased(MappedInputManager::Button::Up)) {
+                if (clientCount2 > 0) {
+                    clientListIndex = ButtonNavigator::previousIndex(clientListIndex, clientCount2);
+                    requestUpdate();
+                }
+            }
+            if (mappedInput.wasReleased(MappedInputManager::Button::Confirm)) {
+                if (clientCount2 > 0 && clientList[clientListIndex]) {
+                    current = clientList[clientListIndex];
+                    memcpy(selectedMac, current->mac, 6);
+                    profileScroll = 0;
+                    buildClientList();  // will be empty for a STA — that's fine
+                    analyzeCapabilities();
+                    state = PROFILE_VIEW;
+                    requestUpdate();
+                }
             }
             break;
         }
@@ -349,13 +402,54 @@ void HuntActivity::render(RenderLock&&) {
     renderer.clearScreen();
 
     switch (state) {
-        case SELECT_TARGET:  renderSelectTarget();  break;
-        case PROFILE_VIEW:   renderProfile();       break;
-        case CAPABILITIES:   renderCapabilities();  break;
-        case MOVEMENT_LOG:   renderMovementLog();   break;
+        case SELECT_CATEGORY: renderSelectCategory(); break;
+        case SELECT_TARGET:   renderSelectTarget();   break;
+        case PROFILE_VIEW:    renderProfile();        break;
+        case CAPABILITIES:    renderCapabilities();   break;
+        case CLIENT_LIST:     renderClientList();     break;
     }
 
     renderer.displayBuffer();
+}
+
+// ---------------------------------------------------------------------------
+// renderSelectCategory
+// ---------------------------------------------------------------------------
+
+void HuntActivity::renderSelectCategory() const {
+    const auto& metrics = UITheme::getInstance().getMetrics();
+    const auto pageWidth  = renderer.getScreenWidth();
+    const auto pageHeight = renderer.getScreenHeight();
+
+    GUI.drawHeader(renderer,
+        Rect{0, metrics.topPadding, pageWidth, metrics.headerHeight},
+        "HUNT — Select Category");
+
+    const int listTop    = metrics.topPadding + metrics.headerHeight;
+    const int hintsH     = metrics.buttonHintsHeight;
+    const int listHeight = pageHeight - listTop - hintsH;
+
+    const int apCount  = TARGETS.countByType(TargetType::AP);
+    const int staCount = TARGETS.countByType(TargetType::STA);
+    const int bleCount = TARGETS.countByType(TargetType::BLE);
+
+    GUI.drawList(
+        renderer,
+        Rect{0, listTop, pageWidth, listHeight},
+        3,
+        huntCategoryIndex,
+        [apCount, staCount, bleCount](int i) -> std::string {
+            char buf[32];
+            if (i == 0)      snprintf(buf, sizeof(buf), "WiFi APs (%d)", apCount);
+            else if (i == 1) snprintf(buf, sizeof(buf), "WiFi Clients (%d)", staCount);
+            else             snprintf(buf, sizeof(buf), "BLE Devices (%d)", bleCount);
+            return std::string(buf);
+        },
+        [](int) -> std::string { return ""; }
+    );
+
+    const auto labels = mappedInput.mapLabels("Back", "Open", "", "");
+    GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
 }
 
 // ---------------------------------------------------------------------------
@@ -367,9 +461,15 @@ void HuntActivity::renderSelectTarget() const {
     const auto pageWidth  = renderer.getScreenWidth();
     const auto pageHeight = renderer.getScreenHeight();
 
+    const char* catName = (browseType == TargetType::AP)  ? "WiFi APs"
+                        : (browseType == TargetType::STA) ? "Clients"
+                                                          : "BLE";
+    char headerTitle[32];
+    snprintf(headerTitle, sizeof(headerTitle), "HUNT — %s", catName);
+
     GUI.drawHeader(renderer,
         Rect{0, metrics.topPadding, pageWidth, metrics.headerHeight},
-        "HUNT — Targets");
+        headerTitle);
 
     const int headerBottom = metrics.topPadding + metrics.headerHeight;
     const int listHeight   = pageHeight - headerBottom - metrics.buttonHintsHeight;
@@ -394,13 +494,10 @@ void HuntActivity::renderSelectTarget() const {
             },
             [this](int i) -> std::string {
                 if (!targetList[i]) return "";
-                bool stale = !TARGETS.isSeenThisSession(targetList[i]);
                 char buf[40];
                 char macBuf[18];
                 formatMac(macBuf, sizeof(macBuf), targetList[i]->mac);
-                snprintf(buf, sizeof(buf), "%s  %s%d", macBuf,
-                         stale ? "OLD " : "RSSI ",
-                         (int)targetList[i]->rssi);
+                snprintf(buf, sizeof(buf), "%s  RSSI %d", macBuf, (int)targetList[i]->rssi);
                 return std::string(buf);
             });
     }
@@ -461,7 +558,11 @@ void HuntActivity::renderProfile() const {
                  current->wps ? "Yes" : "No");
         renderer.drawText(UI_10_FONT_ID, x, y, line); y += lh;
 
-        snprintf(line, sizeof(line), "Clients: %d", (int)current->clientCount);
+        if (clientCount2 > 0) {
+            snprintf(line, sizeof(line), "Clients: %d  (PAGE BACK to view)", clientCount2);
+        } else {
+            snprintf(line, sizeof(line), "Clients: %d", (int)current->clientCount);
+        }
         renderer.drawText(UI_10_FONT_ID, x, y, line); y += lh;
 
         if (current->hasHandshake || current->hasPmkid) {
@@ -516,7 +617,7 @@ void HuntActivity::renderProfile() const {
     }
 
     // Button hints
-    const auto labels = mappedInput.mapLabels("Back", "Assess", "Log", "Caps");
+    const auto labels = mappedInput.mapLabels("Back", "Assess", "", "");
     GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
 }
 
@@ -525,8 +626,8 @@ void HuntActivity::renderProfile() const {
 // ---------------------------------------------------------------------------
 
 void HuntActivity::renderCapabilities() const {
-    const auto& metrics  = UITheme::getInstance().getMetrics();
-    const auto pageWidth = renderer.getScreenWidth();
+    const auto& metrics   = UITheme::getInstance().getMetrics();
+    const auto pageWidth  = renderer.getScreenWidth();
     const auto pageHeight = renderer.getScreenHeight();
 
     GUI.drawHeader(renderer,
@@ -560,48 +661,50 @@ void HuntActivity::renderCapabilities() const {
 }
 
 // ---------------------------------------------------------------------------
-// renderMovementLog
+// renderClientList
 // ---------------------------------------------------------------------------
 
-void HuntActivity::renderMovementLog() const {
-    if (!current) return;
-
-    const auto& metrics  = UITheme::getInstance().getMetrics();
-    const auto pageWidth = renderer.getScreenWidth();
+void HuntActivity::renderClientList() const {
+    const auto& metrics   = UITheme::getInstance().getMetrics();
+    const auto pageWidth  = renderer.getScreenWidth();
     const auto pageHeight = renderer.getScreenHeight();
 
     GUI.drawHeader(renderer,
         Rect{0, metrics.topPadding, pageWidth, metrics.headerHeight},
-        "HUNT — Movement Log");
+        "HUNT — AP Clients");
 
-    const int x  = metrics.contentSidePadding;
-    int y = metrics.topPadding + metrics.headerHeight + 16;
-    const int lh = 28;
+    const int headerBottom = metrics.topPadding + metrics.headerHeight;
+    const int listHeight   = pageHeight - headerBottom - metrics.buttonHintsHeight;
 
-    char macBuf[18];
-    formatMac(macBuf, sizeof(macBuf), current->mac);
-    renderer.drawText(UI_10_FONT_ID, x, y, macBuf); y += lh;
+    if (clientCount2 == 0) {
+        renderer.drawCenteredText(UI_10_FONT_ID, pageHeight / 2 - 10, "No associated clients found");
+    } else {
+        GUI.drawList(renderer,
+            Rect{0, headerBottom, pageWidth, listHeight},
+            clientCount2,
+            clientListIndex,
+            [this](int i) -> std::string {
+                if (!clientList[i]) return "---";
+                char buf[56];
+                char macBuf[18];
+                formatMac(macBuf, sizeof(macBuf), clientList[i]->mac);
+                if (clientList[i]->name[0] != '\0') {
+                    snprintf(buf, sizeof(buf), "[CL] %s", clientList[i]->name);
+                } else {
+                    snprintf(buf, sizeof(buf), "[CL] %s", macBuf);
+                }
+                return std::string(buf);
+            },
+            [this](int i) -> std::string {
+                if (!clientList[i]) return "";
+                char buf[48];
+                char macBuf[18];
+                formatMac(macBuf, sizeof(macBuf), clientList[i]->mac);
+                snprintf(buf, sizeof(buf), "%s  RSSI %d", macBuf, (int)clientList[i]->rssi);
+                return std::string(buf);
+            });
+    }
 
-    char tfirst[8], tlast[8];
-    formatTime(tfirst, sizeof(tfirst), current->firstSeen);
-    formatTime(tlast,  sizeof(tlast),  current->lastSeen);
-
-    char line[64];
-    snprintf(line, sizeof(line), "First seen: %s", tfirst);
-    renderer.drawText(UI_10_FONT_ID, x, y, line); y += lh;
-
-    snprintf(line, sizeof(line), "Last seen:  %s", tlast);
-    renderer.drawText(UI_10_FONT_ID, x, y, line); y += lh;
-
-    snprintf(line, sizeof(line), "Last RSSI:  %d dBm", (int)current->rssi);
-    renderer.drawText(UI_10_FONT_ID, x, y, line); y += lh;
-
-    y += 8;
-    renderer.drawText(SMALL_FONT_ID, x, y,
-                      "Continuous RSSI logging: not yet available");
-
-    (void)pageHeight; // suppress unused warning
-
-    const auto labels = mappedInput.mapLabels("Back", "", "", "");
+    const auto labels = mappedInput.mapLabels("Back", "Select", "Up", "Down");
     GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
 }

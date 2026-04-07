@@ -17,10 +17,14 @@ public:
     void render(RenderLock&&) override;
 
 private:
-    enum State { SELECT_TARGET, PROFILE_VIEW, CAPABILITIES, MOVEMENT_LOG };
+    enum State { SELECT_CATEGORY, SELECT_TARGET, PROFILE_VIEW, CAPABILITIES, CLIENT_LIST };
 
-    State state = SELECT_TARGET;
+    State state = SELECT_CATEGORY;
     ButtonNavigator buttonNavigator;
+
+    // Category selection
+    int huntCategoryIndex = 0;  // 0=APs, 1=Clients, 2=BLE
+    TargetType browseType = TargetType::AP;
 
     // Target list
     int listIndex = 0;
@@ -49,12 +53,19 @@ private:
     // Profile scroll
     int profileScroll = 0;
 
+    // Client list (AP sub-view)
+    Target* clientList[20] = {};
+    int clientCount2 = 0;
+    int clientListIndex = 0;
+
     void analyzeCapabilities();
     void selectTarget(int index);
-    void loadTargetList();
+    void loadTargetListByType(TargetType type);
+    void buildClientList();
 
+    void renderSelectCategory() const;
     void renderSelectTarget() const;
     void renderProfile() const;
     void renderCapabilities() const;
-    void renderMovementLog() const;
+    void renderClientList() const;
 };

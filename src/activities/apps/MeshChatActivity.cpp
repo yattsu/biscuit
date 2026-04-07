@@ -97,6 +97,13 @@ void MeshChatActivity::onDataRecv(const esp_now_recv_info_t* recvInfo, const uin
 
     activeInstance->addMessage(mac, senderName, text, false);
     activeInstance->requestUpdate();
+
+    if (activeInstance->relayMode) {
+      if (memcmp(data + 1, activeInstance->localMac, 6) != 0) {
+        uint8_t broadcast[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
+        esp_now_send(broadcast, data, len);
+      }
+    }
   } else if (frameType == FRAME_PRESENCE) {
     char peerName[16] = {};
     memcpy(peerName, data + 7, 15);
@@ -241,6 +248,11 @@ void MeshChatActivity::loop() {
         state = CHAT_VIEW;
         requestUpdate();
       }
+
+      if (mappedInput.wasReleased(MappedInputManager::Button::PageForward)) {
+        relayMode = !relayMode;
+        requestUpdate();
+      }
       break;
     }
   }
@@ -265,8 +277,12 @@ void MeshChatActivity::renderChatView() const {
     peersCount = static_cast<int>(peers.size());
     xSemaphoreGive(peersMux);
   }
-  char subtitle[32];
-  snprintf(subtitle, sizeof(subtitle), "%d msgs | %d peers", messageCount, peersCount);
+  char subtitle[48];
+  if (relayMode) {
+    snprintf(subtitle, sizeof(subtitle), "%d msgs | %d peers | RELAY", messageCount, peersCount);
+  } else {
+    snprintf(subtitle, sizeof(subtitle), "%d msgs | %d peers", messageCount, peersCount);
+  }
   GUI.drawHeader(renderer, Rect{0, metrics.topPadding, pageWidth, metrics.headerHeight},
                  "Mesh Chat", subtitle);
 
@@ -344,6 +360,11 @@ void MeshChatActivity::renderPeers() const {
         });
   }
 
-  const auto labels = mappedInput.mapLabels(tr(STR_BACK), "", tr(STR_DIR_UP), tr(STR_DIR_DOWN));
+  char relayStr[24];
+  snprintf(relayStr, sizeof(relayStr), "Relay: %s", relayMode ? "ON" : "OFF");
+  renderer.drawText(SMALL_FONT_ID, metrics.contentSidePadding,
+                    pageHeight - metrics.buttonHintsHeight - 22, relayStr);
+
+  const auto labels = mappedInput.mapLabels(tr(STR_BACK), "Relay", tr(STR_DIR_UP), tr(STR_DIR_DOWN));
   GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
 }

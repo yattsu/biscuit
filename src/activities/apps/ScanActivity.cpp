@@ -39,7 +39,6 @@ void ScanActivity::onEnter() {
     Activity::onEnter();
     state = IDLE;
     phase = PAUSED;
-    filter = ALL;
     scanStartMs = 0;
     phaseStartMs = 0;
     lastDisplayMs = 0;
@@ -53,6 +52,8 @@ void ScanActivity::onEnter() {
     browseIndex = 0;
     browseCount = 0;
     detailIndex = 0;
+    categoryIndex = 0;
+    browseType = TargetType::AP;
     ringBuf.clear();
     requestUpdate();
 }
@@ -163,48 +164,8 @@ void ScanActivity::updateStats() {
 
 void ScanActivity::refreshBrowseList() {
     browseCount = 0;
-
-    if (filter == ALL) {
-        TARGETS.getSorted(TargetType::AP, browseList, 50, browseCount, 0);
-        int more = 0;
-        Target* temp[50] = {};
-        int room = 50 - browseCount;
-        if (room > 0) {
-            TARGETS.getSorted(TargetType::STA, temp, room, more, 0);
-            for (int i = 0; i < more && browseCount < 50; i++) {
-                browseList[browseCount++] = temp[i];
-            }
-        }
-        more = 0;
-        room = 50 - browseCount;
-        if (room > 0) {
-            TARGETS.getSorted(TargetType::BLE, temp, room, more, 0);
-            for (int i = 0; i < more && browseCount < 50; i++) {
-                browseList[browseCount++] = temp[i];
-            }
-        }
-    } else {
-        TargetType tt = (filter == WIFI_APS)     ? TargetType::AP
-                      : (filter == WIFI_CLIENTS)  ? TargetType::STA
-                                                  : TargetType::BLE;
-        TARGETS.getSorted(tt, browseList, 50, browseCount, 0);
-    }
-
+    TARGETS.getSorted(browseType, browseList, 50, browseCount, 0);
     browseIndex = 0;
-}
-
-// ---------------------------------------------------------------------------
-// Filter name helper
-// ---------------------------------------------------------------------------
-
-const char* ScanActivity::filterName() const {
-    switch (filter) {
-        case ALL:          return "All";
-        case WIFI_APS:     return "APs";
-        case WIFI_CLIENTS: return "Clients";
-        case BLE_DEVICES:  return "BLE";
-        default:           return "All";
-    }
 }
 
 // ---------------------------------------------------------------------------
@@ -220,7 +181,7 @@ void ScanActivity::loop() {
             scanStartMs = now;
             packetsProcessed = 0;
             ringBuf.clear();
-            TARGETS.loadCache();
+            TARGETS.clear();
             startWifiPhase();
             requestUpdate();
             return;
@@ -271,13 +232,43 @@ void ScanActivity::loop() {
         // Button handling
         if (mappedInput.wasReleased(MappedInputManager::Button::Confirm)) {
             stopScanning();
+            categoryIndex = 0;
+            state = BROWSE_CATEGORIES;
+            requestUpdate();
+            return;
+        }
+        if (mappedInput.wasReleased(MappedInputManager::Button::Back)) {
+            stopScanning();
+            state = IDLE;
+            requestUpdate();
+            return;
+        }
+        return;
+    }
+
+    if (state == BROWSE_CATEGORIES) {
+        static constexpr int CATEGORY_COUNT = 3;
+
+        if (mappedInput.wasReleased(MappedInputManager::Button::Up)) {
+            categoryIndex = ButtonNavigator::previousIndex(categoryIndex, CATEGORY_COUNT);
+            requestUpdate();
+            return;
+        }
+        if (mappedInput.wasReleased(MappedInputManager::Button::Down)) {
+            categoryIndex = ButtonNavigator::nextIndex(categoryIndex, CATEGORY_COUNT);
+            requestUpdate();
+            return;
+        }
+        if (mappedInput.wasReleased(MappedInputManager::Button::Confirm)) {
+            browseType = (categoryIndex == 0) ? TargetType::AP
+                       : (categoryIndex == 1) ? TargetType::STA
+                                              : TargetType::BLE;
             refreshBrowseList();
             state = BROWSE_LIST;
             requestUpdate();
             return;
         }
         if (mappedInput.wasReleased(MappedInputManager::Button::Back)) {
-            stopScanning();
             state = IDLE;
             requestUpdate();
             return;
@@ -296,20 +287,6 @@ void ScanActivity::loop() {
             requestUpdate();
         });
 
-        // Left/Right: cycle filter
-        if (mappedInput.wasReleased(MappedInputManager::Button::Left)) {
-            filter = static_cast<BrowseFilter>((filter + FILTER_COUNT - 1) % FILTER_COUNT);
-            refreshBrowseList();
-            requestUpdate();
-            return;
-        }
-        if (mappedInput.wasReleased(MappedInputManager::Button::Right)) {
-            filter = static_cast<BrowseFilter>((filter + 1) % FILTER_COUNT);
-            refreshBrowseList();
-            requestUpdate();
-            return;
-        }
-
         // Confirm: go to detail
         if (mappedInput.wasReleased(MappedInputManager::Button::Confirm)) {
             if (browseCount > 0) {
@@ -320,13 +297,9 @@ void ScanActivity::loop() {
             return;
         }
 
-        // Back: resume scanning
+        // Back: return to category selection
         if (mappedInput.wasReleased(MappedInputManager::Button::Back)) {
-            state = SCANNING;
-            scanStartMs = now;
-            packetsProcessed = 0;
-            ringBuf.clear();
-            startWifiPhase();
+            state = BROWSE_CATEGORIES;
             requestUpdate();
             return;
         }
@@ -369,11 +342,12 @@ void ScanActivity::loop() {
 
 void ScanActivity::render(RenderLock&& lock) {
     switch (state) {
-        case IDLE:         renderIdle();         break;
-        case SCANNING:     renderDashboard();    break;
-        case BROWSE_LIST:  renderBrowse();       break;
-        case TARGET_DETAIL: renderTargetDetail(); break;
-        default:           renderIdle();         break;
+        case IDLE:              renderIdle();          break;
+        case SCANNING:          renderDashboard();     break;
+        case BROWSE_CATEGORIES: renderCategories();    break;
+        case BROWSE_LIST:       renderBrowse();        break;
+        case TARGET_DETAIL:     renderTargetDetail();  break;
+        default:                renderIdle();          break;
     }
 }
 
@@ -485,6 +459,50 @@ void ScanActivity::renderDashboard() const {
 }
 
 // ---------------------------------------------------------------------------
+// renderCategories
+// ---------------------------------------------------------------------------
+
+void ScanActivity::renderCategories() const {
+    const auto& metrics = UITheme::getInstance().getMetrics();
+    const auto pageWidth  = renderer.getScreenWidth();
+    const auto pageHeight = renderer.getScreenHeight();
+
+    renderer.clearScreen();
+
+    GUI.drawHeader(renderer,
+                   Rect{0, metrics.topPadding, pageWidth, metrics.headerHeight},
+                   "SCAN — BROWSE");
+
+    const int listTop    = metrics.topPadding + metrics.headerHeight;
+    const int hintsH     = metrics.buttonHintsHeight;
+    const int listHeight = pageHeight - listTop - hintsH;
+
+    const int apCount     = TARGETS.countByType(TargetType::AP);
+    const int staCount    = TARGETS.countByType(TargetType::STA);
+    const int bleCount    = TARGETS.countByType(TargetType::BLE);
+
+    GUI.drawList(
+        renderer,
+        Rect{0, listTop, pageWidth, listHeight},
+        3,
+        categoryIndex,
+        [apCount, staCount, bleCount](int i) -> std::string {
+            char buf[32];
+            if (i == 0)      snprintf(buf, sizeof(buf), "WiFi APs (%d)", apCount);
+            else if (i == 1) snprintf(buf, sizeof(buf), "WiFi Clients (%d)", staCount);
+            else             snprintf(buf, sizeof(buf), "BLE Devices (%d)", bleCount);
+            return std::string(buf);
+        },
+        [](int) -> std::string { return ""; }
+    );
+
+    const auto labels = mappedInput.mapLabels("Back", "Open", "", "");
+    GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
+
+    renderer.displayBuffer();
+}
+
+// ---------------------------------------------------------------------------
 // renderBrowse
 // ---------------------------------------------------------------------------
 
@@ -495,8 +513,11 @@ void ScanActivity::renderBrowse() const {
 
     renderer.clearScreen();
 
+    const char* catName = (browseType == TargetType::AP)  ? "WiFi APs"
+                        : (browseType == TargetType::STA) ? "Clients"
+                                                          : "BLE";
     char headerTitle[32];
-    snprintf(headerTitle, sizeof(headerTitle), "SCAN — %s", filterName());
+    snprintf(headerTitle, sizeof(headerTitle), "SCAN — %s", catName);
     GUI.drawHeader(renderer,
                    Rect{0, metrics.topPadding, pageWidth, metrics.headerHeight},
                    headerTitle);
@@ -518,7 +539,6 @@ void ScanActivity::renderBrowse() const {
             [this](int i) -> std::string {
                 if (i < 0 || i >= browseCount || !browseList[i]) return "";
                 const Target* t = browseList[i];
-                // Show MAC
                 char mac[20];
                 snprintf(mac, sizeof(mac), "%02X:%02X:%02X:%02X:%02X:%02X",
                          t->mac[0], t->mac[1], t->mac[2], t->mac[3], t->mac[4], t->mac[5]);
@@ -528,9 +548,9 @@ void ScanActivity::renderBrowse() const {
                 if (i < 0 || i >= browseCount || !browseList[i]) return "";
                 const Target* t = browseList[i];
                 char sub[48];
-                const char* typeStr = (t->type == TargetType::AP)     ? "AP"
-                                    : (t->type == TargetType::STA)  ? "Client"
-                                                                            : "BLE";
+                const char* typeStr = (t->type == TargetType::AP)  ? "AP"
+                                    : (t->type == TargetType::STA) ? "Client"
+                                                                    : "BLE";
                 if (t->type == TargetType::AP && t->ssid[0] != '\0') {
                     snprintf(sub, sizeof(sub), "[%s] %s  RSSI:%d", typeStr, t->ssid, (int)t->rssi);
                 } else if (t->type == TargetType::BLE && t->name[0] != '\0') {
@@ -543,7 +563,7 @@ void ScanActivity::renderBrowse() const {
         );
     }
 
-    const auto labels = mappedInput.mapLabels("Resume", "Detail", "<Flt", "Flt>");
+    const auto labels = mappedInput.mapLabels("Back", "Detail", "", "");
     GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
 
     renderer.displayBuffer();
@@ -587,9 +607,9 @@ void ScanActivity::renderTargetDetail() const {
     char buf[64];
 
     // Type
-    const char* typeStr = (t->type == TargetType::AP)     ? "WiFi AP"
-                        : (t->type == TargetType::STA)  ? "WiFi Client"
-                                                                : "BLE Device";
+    const char* typeStr = (t->type == TargetType::AP)  ? "WiFi AP"
+                        : (t->type == TargetType::STA) ? "WiFi Client"
+                                                       : "BLE Device";
     snprintf(buf, sizeof(buf), "Type:    %s", typeStr);
     renderer.drawText(UI_10_FONT_ID, leftPad, y, buf);
     y += lineGap;

@@ -56,6 +56,9 @@ class MeshChatActivity final : public Activity {
   char localName[16] = "biscuit";
   uint8_t localMac[6] = {};
 
+  // Relay mode: rebroadcast received CHAT frames from other nodes
+  bool relayMode = false;
+
   // ESP-NOW state
   bool espnowInitialized = false;
   static constexpr uint8_t ESPNOW_CHANNEL = 1;

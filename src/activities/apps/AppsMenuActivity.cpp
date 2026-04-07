@@ -41,8 +41,11 @@
 #include "WifiConnectActivity.h"
 #include "WifiTestActivity.h"
 #include "WardrivingActivity.h"
+#include "WifiHeatMapActivity.h"
+#include "SignalTriangulationActivity.h"
 #include "WifiScannerActivity.h"
 #include "NetworkMonitorActivity.h"
+#include "DeauthDetectorActivity.h"
 #include "SsidChannelActivity.h"
 #include "MacChangerActivity.h"
 #include "MatrixRainActivity.h"
@@ -70,13 +73,16 @@
 #include "TransitAlertActivity.h"
 #include "AutomationActivity.h"
 #include "TotpActivity.h"
+#include "QrTotpActivity.h"
 #include "EventLoggerActivity.h"
 #include "FlashcardActivity.h"
 #include "CipherActivity.h"
 #include "OtpGeneratorActivity.h"
+#include "SteganographyActivity.h"
 #include "HabitTrackerActivity.h"
 #include "ReadingStatsActivity.h"
 #include "TrackerDetectorActivity.h"
+#include "PhoneTetherActivity.h"
 #include "BleContactExchangeActivity.h"
 #include "BleSpamActivity.h"
 #include "RfSilenceActivity.h"
@@ -90,6 +96,7 @@
 #include "UsbMassStorageActivity.h"
 #include "ScreenDecoyActivity.h"
 #include "SecurityPinActivity.h"
+#include "SdEncryptionActivity.h"
 #include "activities/home/FileBrowserActivity.h"
 #include "activities/home/RecentBooksActivity.h"
 #include "activities/browser/OpdsBookBrowserActivity.h"
@@ -212,6 +219,8 @@ void AppsMenuActivity::loop() {
                 {"mDNS Browser", "Discover local services", UIIcon::Wifi, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<MdnsBrowserActivity>(r, m); }},
                 AppCategoryActivity::SectionHeader("RECON"),
                 {"Wardriving", "Log APs with signal strength", UIIcon::Wifi, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<WardrivingActivity>(r, m); }},
+                {"Heat Map", "Log RSSI per AP while walking", UIIcon::Wifi, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<WifiHeatMapActivity>(r, m); }},
+                {"Triangulation", "Estimate AP direction from 3 points", UIIcon::Wifi, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<SignalTriangulationActivity>(r, m); }},
                 {"Probe Sniffer", "Capture WiFi probe requests", UIIcon::Wifi, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<ProbeSnifferActivity>(r, m); }},
                 {tr(STR_PACKET_MONITOR), "Monitor WiFi frames + PCAP", UIIcon::Wifi, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<PacketMonitorActivity>(r, m); }},
                 {"Crowd Density", "Estimate people nearby via probes", UIIcon::Wifi, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<CrowdDensityActivity>(r, m); }},
@@ -229,11 +238,14 @@ void AppsMenuActivity::loop() {
                 {"Bulletin Board", "Local anonymous message board", UIIcon::Hotspot, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<BulletinBoardActivity>(r, m); }},
                 AppCategoryActivity::SectionHeader("SECURITY"),
                 {"Tracker Detector", "Detect AirTags following you", UIIcon::Hotspot, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<TrackerDetectorActivity>(r, m); }},
+                {"Phone Tether", "Alert when paired device leaves range", UIIcon::Hotspot, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<PhoneTetherActivity>(r, m); }},
                 {"Security Sweep", "Scan for cameras/trackers/rogues", UIIcon::Settings, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<SweepActivity>(r, m); }},
                 {"Network Monitor", "Detect rogue APs + suspicious frames", UIIcon::Wifi, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<NetworkMonitorActivity>(r, m); }},
+                {"Deauth Detector", "Detect deauth/disassoc frame spikes", UIIcon::Wifi, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<DeauthDetectorActivity>(r, m); }},
                 {"Emergency", "SOS beacon + dead man's switch", UIIcon::Hotspot, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<EmergencyActivity>(r, m); }},
                 {"Quick Wipe", "Erase all biscuit data from SD", UIIcon::Folder, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<QuickWipeActivity>(r, m); }},
                 {"PIN Security", "Lock device with PIN + duress mode", UIIcon::Settings, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<SecurityPinActivity>(r, m); }},
+                {"SD Encryption", "Encrypt biscuit data with PIN", UIIcon::Settings, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<SdEncryptionActivity>(r, m); }},
                 {"RF Silence", "Kill all radios + verify they're off", UIIcon::Wifi, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<RfSilenceActivity>(r, m); }},
                 {"Screen Decoy", "Fake screen to hide activity", UIIcon::File, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<ScreenDecoyActivity>(r, m); }},
                 {"MAC Changer", "Randomize WiFi/BLE MAC address", UIIcon::Settings, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<MacChangerActivity>(r, m); }},
@@ -270,6 +282,7 @@ void AppsMenuActivity::loop() {
           std::vector<AppCategoryActivity::AppEntry> e = {
               AppCategoryActivity::SectionHeader("SECURITY & AUTH"),
               {"Authenticator", "TOTP 2FA codes (offline)", UIIcon::Settings, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<TotpActivity>(r, m); }, false, []() -> bool { return Storage.exists("/biscuit/totp.dat"); }},
+              {"TOTP QR", "Show 2FA code as scannable QR", UIIcon::Image, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<QrTotpActivity>(r, m); }, false, []() -> bool { return Storage.exists("/biscuit/totp.dat"); }},
               {"Medical Card", "Emergency medical info on screen", UIIcon::Text, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<MedicalCardActivity>(r, m); }},
               {tr(STR_PASSWORD_MANAGER), "Encrypted credentials on SD", UIIcon::Settings, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<PasswordManagerActivity>(r, m); }},
               AppCategoryActivity::SectionHeader("UTILITIES"),
@@ -284,6 +297,7 @@ void AppsMenuActivity::loop() {
               {tr(STR_UNIT_CONVERTER), "Convert between units", UIIcon::File, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<UnitConverterActivity>(r, m); }},
               {"Cipher Tools", "ROT13, Caesar, Vigenere, XOR", UIIcon::Text, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<CipherActivity>(r, m); }},
               {"OTP Generator", "One-time pad random numbers", UIIcon::Text, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<OtpGeneratorActivity>(r, m); }},
+              {"Stego Notes", "Hide text in BMP images", UIIcon::Image, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<SteganographyActivity>(r, m); }},
               {"File Browser", "Browse files on SD card", UIIcon::Folder, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<SdFileBrowserActivity>(r, m); }},
               AppCategoryActivity::SectionHeader("TRACKING & NOTES"),
               {"Event Logger", "Timestamped notes with location", UIIcon::Text, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<EventLoggerActivity>(r, m); }},

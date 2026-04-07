@@ -17,13 +17,11 @@ public:
     bool skipLoopDelay() override { return state == SCANNING; }
 
 private:
-    enum State { IDLE, SCANNING, BROWSE_LIST, TARGET_DETAIL };
+    enum State { IDLE, SCANNING, BROWSE_CATEGORIES, BROWSE_LIST, TARGET_DETAIL };
     enum ScanPhase { WIFI_PROMISC, BLE_SCAN, PAUSED };
-    enum BrowseFilter { ALL, WIFI_APS, WIFI_CLIENTS, BLE_DEVICES, FILTER_COUNT };
 
     State state = IDLE;
     ScanPhase phase = PAUSED;
-    BrowseFilter filter = ALL;
 
     // Scan timing
     unsigned long scanStartMs = 0;
@@ -51,6 +49,8 @@ private:
     Target* browseList[50] = {};
     int browseCount = 0;
     int detailIndex = 0;
+    TargetType browseType = TargetType::AP;  // which category we're browsing
+    int categoryIndex = 0;                   // 0=APs, 1=Clients, 2=BLE
 
     // Promiscuous callback
     static PacketRingBuffer ringBuf;
@@ -65,11 +65,11 @@ private:
     // Render helpers
     void renderIdle() const;
     void renderDashboard() const;
+    void renderCategories() const;
     void renderBrowse() const;
     void renderTargetDetail() const;
 
     // Utility
     void updateStats();
     void refreshBrowseList();
-    const char* filterName() const;
 };
