@@ -40,8 +40,8 @@ class SdEncryptionActivity final : public Activity {
   // ENC-001: file name collection buffers moved to class members to avoid
   // 4 KB stack allocation inside result-handler lambda (deep call chain).
   static constexpr int MAX_FILES = 32;
-  static constexpr int NAME_MAX  = 128;
-  char fileNames[MAX_FILES][NAME_MAX];  // ~4 KB, heap-allocated with the object
+  static constexpr int FNAME_MAX = 128;
+  char fileNames[MAX_FILES][FNAME_MAX];  // ~4 KB, heap-allocated with the object
 
   // ENC-004: two-phase Change-PIN state
   bool    changePinPhase2 = false;

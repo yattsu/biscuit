@@ -401,14 +401,14 @@ bool SdEncryptionActivity::encryptAll(const uint8_t key[32]) {
   while (count < MAX_FILES && (entry = dir.openNextFile())) {
     if (entry.isDirectory()) { entry.close(); continue; }
 
-    char name[NAME_MAX];
+    char name[FNAME_MAX];
     entry.getName(name, sizeof(name));
     entry.close();
 
     if (name[0] == '\0' || name[0] == '.') continue;
     if (!isEligibleExt(name)) continue;
 
-    snprintf(fileNames[count], NAME_MAX, "%s", name);
+    snprintf(fileNames[count], FNAME_MAX, "%s", name);
     count++;
   }
   dir.close();
@@ -458,7 +458,7 @@ bool SdEncryptionActivity::decryptAll(const uint8_t key[32]) {
   while (count < MAX_FILES && (entry = dir.openNextFile())) {
     if (entry.isDirectory()) { entry.close(); continue; }
 
-    char name[NAME_MAX];
+    char name[FNAME_MAX];
     entry.getName(name, sizeof(name));
     entry.close();
 
@@ -467,7 +467,7 @@ bool SdEncryptionActivity::decryptAll(const uint8_t key[32]) {
     size_t len = strlen(name);
     if (len <= 5 || strcmp(name + len - 5, ".benc") != 0) continue;
 
-    snprintf(fileNames[count], NAME_MAX, "%s", name);
+    snprintf(fileNames[count], FNAME_MAX, "%s", name);
     count++;
   }
   dir.close();
