@@ -13,6 +13,7 @@
 #include "components/themes/lyra/Lyra3CoversTheme.h"
 #include "components/themes/lyra/LyraTheme.h"
 #include "components/themes/noir/NoirTheme.h"
+#include "components/themes/radar/RadarTheme.h"
 
 namespace {
 constexpr int SKIP_PAGE_MS = 700;
@@ -56,6 +57,11 @@ void UITheme::setTheme(CrossPointSettings::UI_THEME type) {
       LOG_DBG("UI", "Using Noir theme");
       currentTheme = std::make_unique<NoirTheme>();
       currentMetrics = &NoirMetrics::values;
+      break;
+    case CrossPointSettings::UI_THEME::RADAR:
+      LOG_DBG("UI", "Using Radar theme");
+      currentTheme = std::make_unique<RadarTheme>();
+      currentMetrics = &RadarMetrics::values;
       break;
   }
 }

@@ -3,6 +3,9 @@
 #include "activities/Activity.h"
 #include "util/ButtonNavigator.h"
 
+struct RadarNode;
+struct RadarHomeStatus;
+
 class AppsMenuActivity final : public Activity {
  public:
   explicit AppsMenuActivity(GfxRenderer& renderer, MappedInputManager& mappedInput)
