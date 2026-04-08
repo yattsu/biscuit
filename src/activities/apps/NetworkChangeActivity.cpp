@@ -151,6 +151,11 @@ void NetworkChangeActivity::compareSnapshots() {
 
 void NetworkChangeActivity::loop() {
   if (state == TAKING_SNAPSHOT) {
+    if (millis() - lastSpinnerUpdate >= 600) {
+      lastSpinnerUpdate = millis();
+      spinnerFrame = (spinnerFrame + 1) % 3;
+      requestUpdate();
+    }
     // Blocking in loop() is acceptable for a one-shot scan; render showed
     // "Scanning..." before we entered this state.
     takeSnapshot();
@@ -188,6 +193,11 @@ void NetworkChangeActivity::loop() {
   }
 
   if (state == COMPARING) {
+    if (millis() - lastSpinnerUpdate >= 600) {
+      lastSpinnerUpdate = millis();
+      spinnerFrame = (spinnerFrame + 1) % 3;
+      requestUpdate();
+    }
     if (!loadSnapshot()) {
       state = MENU;
       requestUpdate();
@@ -269,7 +279,7 @@ void NetworkChangeActivity::render(RenderLock&&) {
   if (state == TAKING_SNAPSHOT || state == COMPARING) {
     GUI.drawHeader(renderer, Rect{0, metrics.topPadding, pageWidth, metrics.headerHeight},
                    "Network Change");
-    renderer.drawCenteredText(UI_10_FONT_ID, pageHeight / 2, "Scanning...");
+    GUI.drawSpinner(renderer, pageWidth / 2, pageHeight / 2, "SCANNING...", spinnerFrame);
     renderer.displayBuffer();
     return;
   }

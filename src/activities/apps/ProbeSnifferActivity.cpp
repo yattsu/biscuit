@@ -131,6 +131,15 @@ void ProbeSnifferActivity::loop() {
   // SNIFFING_VIEW
   unsigned long now = millis();
 
+  // Advance spinner while waiting for first probe requests
+  if (entries.empty()) {
+    if (now - lastSpinnerUpdate >= 600) {
+      lastSpinnerUpdate = now;
+      spinnerFrame = (spinnerFrame + 1) % 3;
+      requestUpdate();
+    }
+  }
+
   // Channel hop
   if (sniffing && (now - lastHopTime >= HOP_INTERVAL_MS)) {
     lastHopTime = now;
@@ -258,7 +267,7 @@ void ProbeSnifferActivity::render(RenderLock&&) {
   const int contentHeight = pageHeight - contentTop - metrics.buttonHintsHeight - metrics.verticalSpacing;
 
   if (entryCount == 0) {
-    renderer.drawCenteredText(UI_10_FONT_ID, pageHeight / 2, "Scanning...");
+    GUI.drawSpinner(renderer, pageWidth / 2, pageHeight / 2, "SCANNING...", spinnerFrame);
   } else {
     // Clamp selectorIndex defensively
     if (selectorIndex >= entryCount) selectorIndex = entryCount - 1;

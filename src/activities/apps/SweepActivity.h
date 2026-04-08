@@ -23,6 +23,9 @@ class SweepActivity final : public Activity {
   int findingIndex = 0;
   ButtonNavigator buttonNavigator;
 
+  int spinnerFrame = 0;
+  unsigned long lastSpinnerUpdate = 0;
+
   int trackersFound = 0;
   int suspiciousCams = 0;
   int rogueAps = 0;

@@ -167,6 +167,11 @@ std::string WifiConnectActivity::signalBars(int32_t rssi) {
 
 void WifiConnectActivity::loop() {
   if (state == SCANNING) {
+    if (millis() - lastSpinnerUpdate >= 600) {
+      lastSpinnerUpdate = millis();
+      spinnerFrame = (spinnerFrame + 1) % 3;
+      requestUpdate();
+    }
     if (mappedInput.wasReleased(MappedInputManager::Button::Back)) {
       finish();
       return;
@@ -176,6 +181,11 @@ void WifiConnectActivity::loop() {
   }
 
   if (state == CONNECTING) {
+    if (millis() - lastSpinnerUpdate >= 600) {
+      lastSpinnerUpdate = millis();
+      spinnerFrame = (spinnerFrame + 1) % 3;
+      requestUpdate();
+    }
     if (mappedInput.wasReleased(MappedInputManager::Button::Back)) {
       WiFi.disconnect();
       state = LIST;
@@ -252,9 +262,9 @@ void WifiConnectActivity::render(RenderLock&&) {
 }
 
 void WifiConnectActivity::renderScanning() const {
+  const auto pageWidth = renderer.getScreenWidth();
   const auto pageHeight = renderer.getScreenHeight();
-  const auto height = renderer.getLineHeight(UI_10_FONT_ID);
-  renderer.drawCenteredText(UI_10_FONT_ID, (pageHeight - height) / 2, "Scanning...");
+  GUI.drawSpinner(renderer, pageWidth / 2, pageHeight / 2, "SCANNING...", spinnerFrame);
 }
 
 void WifiConnectActivity::renderList() const {
@@ -281,10 +291,10 @@ void WifiConnectActivity::renderList() const {
 }
 
 void WifiConnectActivity::renderConnecting() const {
+  const auto pageWidth = renderer.getScreenWidth();
   const auto pageHeight = renderer.getScreenHeight();
-  const auto top = pageHeight / 2 - 20;
-  renderer.drawCenteredText(UI_12_FONT_ID, top, "Connecting...", true, EpdFontFamily::BOLD);
-  renderer.drawCenteredText(UI_10_FONT_ID, top + 30, selectedSSID.c_str());
+  GUI.drawSpinner(renderer, pageWidth / 2, pageHeight / 2, "CONNECTING...", spinnerFrame);
+  renderer.drawCenteredText(UI_10_FONT_ID, pageHeight / 2 + 50, selectedSSID.c_str());
 }
 
 void WifiConnectActivity::renderConnected() const {

@@ -314,6 +314,11 @@ std::string BleScannerActivity::bytesToAsciiSafe(const uint8_t* data, int len) {
 
 void BleScannerActivity::loop() {
   if (needsInit) {
+    if (millis() - lastSpinnerUpdate >= 600) {
+      lastSpinnerUpdate = millis();
+      spinnerFrame = (spinnerFrame + 1) % 3;
+      requestUpdate();
+    }
     needsInit = false;
     RADIO.ensureBle();
     scanInitialized = true;
@@ -419,6 +424,15 @@ void BleScannerActivity::loop() {
 
   // SCANNING_VIEW state
 
+  // Advance spinner while waiting for first results
+  if (devices.empty()) {
+    if (millis() - lastSpinnerUpdate >= 600) {
+      lastSpinnerUpdate = millis();
+      spinnerFrame = (spinnerFrame + 1) % 3;
+      requestUpdate();
+    }
+  }
+
   // Check if scan completed and collect results
   if (scanning && scanInitialized) {
     BLEScan* scan = BLEDevice::getScan();
@@ -503,7 +517,7 @@ void BleScannerActivity::render(RenderLock&&) {
 
   if (needsInit) {
     GUI.drawHeader(renderer, Rect{0, metrics.topPadding, pageWidth, metrics.headerHeight}, tr(STR_BLE_SCANNER));
-    renderer.drawCenteredText(UI_10_FONT_ID, pageHeight / 2, "Starting BLE...");
+    GUI.drawSpinner(renderer, pageWidth / 2, pageHeight / 2, "STARTING...", spinnerFrame);
     renderer.displayBuffer();
     return;
   }
@@ -511,12 +525,7 @@ void BleScannerActivity::render(RenderLock&&) {
   if (state == CONNECTING) {
     GUI.drawHeader(renderer, Rect{0, metrics.topPadding, pageWidth, metrics.headerHeight},
                    tr(STR_BLE_SCANNER));
-    char msg[64];
-    const char* devName = (selectedDevice >= 0 && selectedDevice < static_cast<int>(devices.size()))
-                              ? devices[selectedDevice].name.c_str()
-                              : "device";
-    snprintf(msg, sizeof(msg), "Connecting to %s...", devName);
-    renderer.drawCenteredText(UI_10_FONT_ID, pageHeight / 2, msg);
+    GUI.drawSpinner(renderer, pageWidth / 2, pageHeight / 2, "CONNECTING...", spinnerFrame);
     renderer.displayBuffer();
     return;
   }
@@ -680,7 +689,7 @@ void BleScannerActivity::render(RenderLock&&) {
   const int contentHeight = pageHeight - contentTop - metrics.buttonHintsHeight - metrics.verticalSpacing;
 
   if (devices.empty()) {
-    renderer.drawCenteredText(UI_10_FONT_ID, pageHeight / 2, tr(STR_SCANNING_BLE));
+    GUI.drawSpinner(renderer, pageWidth / 2, pageHeight / 2, "SCANNING...", spinnerFrame);
   } else {
     GUI.drawList(
         renderer, Rect{0, contentTop, pageWidth, contentHeight}, static_cast<int>(devices.size()), selectorIndex,

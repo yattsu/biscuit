@@ -39,6 +39,8 @@ class ProbeSnifferActivity final : public Activity {
   int detailIndex = 0;
   bool sniffing = false;
   unsigned long lastUpdateTime = 0;
+  int spinnerFrame = 0;
+  unsigned long lastSpinnerUpdate = 0;
   unsigned long lastHopTime = 0;
   uint8_t currentChannel = 1;
   static constexpr unsigned long UPDATE_INTERVAL_MS = 2000;

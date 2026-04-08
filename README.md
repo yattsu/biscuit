@@ -1,6 +1,6 @@
 # biscuit.
 
-Custom firmware for the **Xteink X4** e-paper device. Turns a $40 e-ink reader into a smart device with wireless tools, security features, communication, games, and utilities — while keeping full e-reader functionality.
+Custom firmware for the **Xteink X4** e-paper device. Turns a $70 e-ink reader into a smart device with wireless tools, security features, communication, games, and utilities — while keeping full e-reader functionality.
 
 Forked from [CrossPoint Reader](https://github.com/crosspoint-reader/crosspoint-reader). All core reading functionality comes from CrossPoint. Biscuit builds on top of it.
 
@@ -28,93 +28,177 @@ The 4.26" e-ink display is readable in direct sunlight, retains its image withou
 
 ## Apps
 
-Biscuit ships 80+ apps across eight categories.
+The home screen is a dashboard of eight tiles. Everything lives under one of them.
 
-### Network — connect and diagnose
+| Tile | Purpose |
+|------|---------|
+| **Recon** | Passive scanning and monitoring — no transmission |
+| **Offense** | Active wireless testing, grouped into Scan → Profile → Attack → Capture |
+| **Defense** | Stealth, detection, and device hardening |
+| **Comms** | Communication and exchange |
+| **Tools** | Crypto, network, productivity, and creative utilities |
+| **Games** | Entertainment |
+| **Reader** | Ebooks, OPDS, reading stats |
+| **Settings** | Preferences, file transfer, system management |
 
-![Network tools](./docs/images/network.jpeg)
-
-| App | What it does |
-|-----|-------------|
-| WiFi Connect | Join a WiFi network |
-| WiFi Analyzer | Scan APs with list, signal strength, and channel views |
-| Host Scanner | Find devices on local network |
-| Ping | Ping a host or IP address |
-| DNS Lookup | Resolve domain names |
-| HTTP Client | Send GET/POST requests |
-| mDNS Browser | Discover local network services |
-
-### Recon — scan and monitor
+### Recon — scan and monitor (passive only)
 
 ![Recon tools](./docs/images/recon.jpeg)
 
+All apps in Recon are read-only — they listen but never transmit.
+
 | App | What it does |
 |-----|-------------|
+| WiFi Scanner | Discover APs and connected clients |
 | BLE Scanner | Scan BLE devices, browse services and characteristics |
+| Full Sweep | Combined WiFi + BLE passive scan |
 | Packet Monitor | Monitor WiFi frames with PCAP recording |
 | Probe Sniffer | Capture WiFi probe requests |
 | Wardriving | Log access points with signal strength |
 | Crowd Density | Estimate nearby people via probe request counting |
 | Device Fingerprint | Identify device OS from probe request patterns |
-| Vendor Lookup | Identify device manufacturer by MAC (OUI database on SD) |
+| Vendor Lookup | Identify manufacturer by MAC (OUI database on SD) |
 | AP History | Log visible access points over time to SD |
-| Network Change | Take snapshots of nearby devices, compare for changes |
+| Network Change | Snapshot nearby devices, compare for changes |
 | Perimeter Watch | Alert when new devices appear in area |
-| BLE Proximity | Track BLE device signal strength |
-| Credential Viewer | View credentials captured by portal |
-| Beacon Test | Broadcast wireless beacons |
-| WiFi Test | Wireless connectivity testing |
-| Captive Portal | Network portal for testing |
-| BLE Beacon | BLE advertisement broadcasting |
-| AirTag Test | Device location testing |
-| BLE Keyboard | HID keyboard emulation (DuckyScript) |
+| BLE Proximity | Track BLE device RSSI |
+| WiFi Heat Map | RSSI mapping walkabout |
+| Signal Locator | Estimate AP position via RSSI triangulation |
+| Deauth Detector | Monitor for deauthentication frame spikes |
 
-### Security — defend and protect
+### Offense — active wireless testing
+
+Offense opens a 2×2 sub-menu grouped into four phases. A disclaimer must be acknowledged before first use.
+
+**Scan — target discovery**
 
 | App | What it does |
 |-----|-------------|
+| WiFi Scan | Discover APs and clients |
+| BLE Scan | Discover BLE devices |
+| Full Sweep | Combined WiFi + BLE passive scan |
+| Saved Targets | Browse cached target database |
+
+**Profile — target analysis**
+
+| App | What it does |
+|-----|-------------|
+| Target Profiler | Select and analyze a target |
+| Client Enum | Devices connected to target AP |
+| Host Scanner | Find devices on local network |
+| Vuln Assessment | Check encryption and WPS settings |
+| Signal Locator | Estimate AP position from RSSI |
+
+**Attack — broadcast and testing tools**
+
+| App | What it does |
+|-----|-------------|
+| Beacon Test | Custom beacon broadcasting |
+| WiFi Test | Wireless connectivity testing |
+| Captive Portal | Network portal for testing |
+| Beacon Flood | Broadcast 30 random SSIDs |
+| SSID Clone | Clone a WiFi AP (open, same channel) |
+| BLE Spam | Proximity / Fast Pair / Swift Pair flood |
+| BLE Keyboard | HID keyboard emulation (DuckyScript over BLE) |
+| AirTag Test | Device location testing |
+| USB Keyboard | Wired DuckyScript over USB-C |
+
+**Capture — review and export**
+
+| App | What it does |
+|-----|-------------|
+| Captured Data | Handshakes, credentials, PCAPs, BLE logs |
+| Credential Viewer | View credentials captured by portal |
+| Probe Log | Recorded WiFi probe requests |
+| Scan History | Browse previously found targets |
+| Wipe Captures | Delete all captured data |
+
+### Defense — stealth and protect
+
+Ghost Mode is the headline entry — it rotates MAC, kills radios, and cleans up state in one action (replacing the old standalone MAC Changer and RF Silence apps).
+
+| App | What it does |
+|-----|-------------|
+| Ghost Mode | MAC rotate + RF kill + state cleanup, one shot |
 | Tracker Detector | Detect AirTags, SmartTags, and Tiles following you |
-| Security Sweep | 30-second scan for cameras, trackers, rogue APs, skimmers |
-| Network Monitor | Detect rogue access points and suspicious frames |
-| Emergency | SOS beacon (WiFi + BLE + Mesh) with dead man's switch |
+| Security Sweep | Scan for cameras, trackers, rogue APs, skimmers |
+| Network Monitor | Detect rogue APs and suspicious frames |
+| Emergency SOS | SOS beacon (WiFi + BLE + Mesh) with dead man's switch |
+| Phone Tether | BLE proximity disconnect alert |
 | Quick Wipe | Erase all biscuit data from SD with verification |
 | PIN Security | Lock device with PIN, duress PIN for fake profile |
-| RF Silence | Kill all radios and verify they are off |
-| Screen Decoy | Fake screen to make device appear dead or broken |
-| MAC Changer | Randomize WiFi/BLE MAC address |
+| Screen Decoy | Fake screen to hide activity |
+| SD Encryption | Encrypt biscuit data on SD with PIN |
 
 ### Comms — communicate and exchange
 
 | App | What it does |
 |-----|-------------|
-| Mesh Chat | Text messaging via ESP-NOW, no WiFi needed, ~200m range |
+| Mesh Chat | ESP-NOW text chat, no WiFi needed, ~200m range, multi-hop relay |
 | SSID Channel | Hide short messages in WiFi network names |
-| Contact Exchange | Swap contact info between devices via BLE |
+| Contact Exchange | Swap contact cards between devices via BLE |
 | Dead Drop | Temporary WiFi AP for anonymous file exchange |
 | Bulletin Board | Local anonymous message board via WiFi AP |
 
 ### Tools — utilities and productivity
 
+A single tile that merges the old Network section with crypto, productivity, tracking, and creative apps.
+
+**Security & crypto**
+
 | App | What it does |
 |-----|-------------|
-| Authenticator | TOTP 2FA codes, works fully offline |
-| Medical Card | Emergency medical info persistent on e-ink |
-| Clock | NTP synced clock, stopwatch, pomodoro timer |
-| Calculator | Basic calculator with history |
+| Authenticator | TOTP 2FA codes, fully offline |
+| TOTP QR | Show a 2FA code as a scannable QR |
 | Password Manager | Encrypted credentials stored on SD |
+| Medical Card | Emergency medical info persistent on e-ink |
+| Stego Notes | Hide text inside BMP images |
+
+**Network**
+
+| App | What it does |
+|-----|-------------|
+| WiFi Connect | Join a WiFi network |
+| WiFi Scanner | APs, signal, channels |
+| Host Scanner | Find devices on local network |
+| Ping | Ping a host or IP address |
+| DNS Lookup | Resolve domain names |
+| HTTP Client | Send GET/POST requests |
+| mDNS Browser | Discover local services |
+
+**Productivity**
+
+| App | What it does |
+|-----|-------------|
+| Clock | NTP clock, stopwatch, pomodoro timer |
+| Calculator | Basic calculator |
 | QR Generator | Generate QR codes from text |
 | Morse Code | Encode and decode morse |
 | Unit Converter | Convert between measurement units |
-| Cipher Tools | ROT13, Caesar, Vigenere, XOR, Atbash |
+| Cipher Tools | ROT13, Caesar, Vigenere, XOR |
 | OTP Generator | One-time pad random number pages |
-| File Browser | Browse and view files on SD card |
+
+**Tracking & logging**
+
+| App | What it does |
+|-----|-------------|
 | Event Logger | Timestamped notes with WiFi location tagging |
 | Flashcards | Study decks loaded from CSV on SD |
 | Habit Tracker | Daily habit checklist with streak tracking |
 | Breadcrumb Trail | Record and retrace your path using WiFi fingerprints |
 | Vehicle Finder | Find your parked car via WiFi fingerprint matching |
-| Transit Alert | Get alerted when approaching a saved transit stop |
+| Transit Alert | Alert when approaching a saved transit stop |
+
+**Creative**
+
+| App | What it does |
+|-----|-------------|
 | Etch-A-Sketch | Draw on the e-ink screen, save as BMP |
+| Barcode Generator | Code 128 / Code 39 / EAN-13 |
+| Key Copier | Draw key profiles from bitting codes |
+| WiFi QR Share | Share WiFi credentials as a QR code |
+| File Browser | Browse and view files on SD card |
+| Countdown | Big countdown timer |
 
 ### Games
 
@@ -122,22 +206,32 @@ Biscuit ships 80+ apps across eight categories.
 
 Casino (slots, blackjack, roulette, coin flip, higher/lower, loot box), Minesweeper, Sudoku, Chess (with bot), Snake, Tetris, Maze, Dice Roller, Game of Life, Voronoi, Matrix Rain.
 
-### System — device management
+### Reader
+
+| App | What it does |
+|-----|-------------|
+| Open Book | Browse and open an ebook |
+| Recent Books | Continue where you left off |
+| OPDS Browser | Download books from OPDS servers |
+| Reading Stats | Pages read, books completed, streaks |
+| Browse Files | File manager for the SD card |
+
+Full EPUB 2/3 rendering, KOReader Sync, and Calibre wireless transfer are inherited from CrossPoint.
+
+### Settings — system and configuration
+
+Promoted to a top-level tile from the old System section.
 
 | App | What it does |
 |-----|-------------|
 | Settings | Display, reader, controls, system configuration |
-| File Transfer | Upload/download files via WiFi (STA, AP, or Calibre) |
-| Task Manager | View heap usage, uptime, activity stack |
-| Battery | Battery level with 30-minute history graph |
+| WiFi Transfer | Upload/download files via WiFi (STA, AP, or Calibre) |
+| USB Storage | Share the SD card as a USB mass-storage drive |
+| Task Manager | View heap, uptime, and activity stack |
+| Battery | Battery level with history graph |
 | Device Info | Chip, flash, RAM, firmware, WiFi, screen info |
 | Background | Radio state, SD status, active timers |
 | Automation | WiFi geofence triggers and scheduled tasks |
-| Reading Stats | Pages read, books completed, streaks |
-
-### Reader
-
-Open Book, Recent Books, Browse Files, OPDS Browser. Full EPUB 2/3 rendering, KOReader Sync, Calibre wireless transfer. All reading features are inherited from CrossPoint.
 
 ## Themes
 

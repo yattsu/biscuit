@@ -34,6 +34,8 @@ class NetworkChangeActivity final : public Activity {
   State state = MENU;
   int menuIndex = 0;
   ButtonNavigator buttonNavigator;
+  int spinnerFrame = 0;
+  unsigned long lastSpinnerUpdate = 0;
 
   Snapshot current;
   Snapshot saved;

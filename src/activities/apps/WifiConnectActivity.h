@@ -33,6 +33,9 @@ class WifiConnectActivity final : public Activity {
   int selectedIndex = 0;
   ButtonNavigator buttonNavigator;
 
+  int spinnerFrame = 0;
+  unsigned long lastSpinnerUpdate = 0;
+
   std::string selectedSSID;
   std::string enteredPassword;
   std::string connectedIP;

@@ -36,6 +36,8 @@ class WardrivingActivity final : public Activity {
   unsigned long startTime = 0;
   unsigned long lastScanTime = 0;
   static constexpr unsigned long SCAN_INTERVAL_MS = 10000;
+  int spinnerFrame = 0;
+  unsigned long lastSpinnerUpdate = 0;
   static constexpr int MAX_NETWORKS = 500;
 
   std::string filename;

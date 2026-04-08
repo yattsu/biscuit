@@ -159,14 +159,15 @@ void RadarHomeRenderer::draw(GfxRenderer& renderer, const RadarNode* nodes, int 
       drawDashedLine(renderer, CENTER_X, CENTER_Y, nodeCX, nodeCY, 5, 4);
     }
 
-    // Node box
+    // Node box — square (sharp corners), opaque fill so radar lines don't bleed through
     if (i == selectedIndex) {
-      // Selected: filled (black) box with white text
-      fillRoundRect(renderer, nodeX, nodeY, NODE_W, NODE_H, NODE_CORNER);
+      // Selected: filled (foreground) box with inverted text
+      renderer.fillRect(nodeX, nodeY, NODE_W, NODE_H, true);
       drawTextCenteredInRect(renderer, nodeX, nodeY, NODE_W, NODE_H, nodes[i].label, false);
     } else {
-      // Unselected: outlined box with black text
-      drawRoundRectOutline(renderer, nodeX, nodeY, NODE_W, NODE_H, NODE_CORNER);
+      // Unselected: opaque background fill covers lines behind, then sharp outline + text
+      renderer.fillRect(nodeX, nodeY, NODE_W, NODE_H, false);
+      renderer.drawRect(nodeX, nodeY, NODE_W, NODE_H, true);
       drawTextCenteredInRect(renderer, nodeX, nodeY, NODE_W, NODE_H, nodes[i].label, true);
     }
   }
@@ -195,7 +196,7 @@ void RadarHomeRenderer::draw(GfxRenderer& renderer, const RadarNode* nodes, int 
   // Battery bar: outline rect then filled portion
   constexpr int barY = statusTopY + 46;
   constexpr int barX = 14;
-  constexpr int barW = pageWidth - 28;
+  const int barW = pageWidth - 28;
   constexpr int barH = 8;
   renderer.drawRect(barX, barY, barW, barH, true);
   if (status.batteryPercent > 0) {

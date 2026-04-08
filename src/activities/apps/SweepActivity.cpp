@@ -246,6 +246,12 @@ void SweepActivity::loop() {
       break;
 
     case SCANNING:
+      // Advance spinner while waiting between phases
+      if (millis() - lastSpinnerUpdate >= 600) {
+        lastSpinnerUpdate = millis();
+        spinnerFrame = (spinnerFrame + 1) % 3;
+        requestUpdate();
+      }
       // Advance through scan phases one at a time, yielding back to the main loop
       // between each phase so the watchdog is fed and the display can update.
       switch (scanPhase) {
@@ -353,7 +359,7 @@ void SweepActivity::renderScanning() const {
   snprintf(progressBuf, sizeof(progressBuf), "Phase %d of 3", scanPhase + 1);
   renderer.drawCenteredText(SMALL_FONT_ID, centerY + 20, progressBuf);
 
-  renderer.drawCenteredText(SMALL_FONT_ID, centerY + 50, "Please wait...");
+  GUI.drawSpinner(renderer, pageWidth / 2, centerY + 80, "PLEASE WAIT...", spinnerFrame);
 }
 
 void SweepActivity::renderResults() const {

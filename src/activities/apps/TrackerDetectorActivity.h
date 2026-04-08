@@ -42,6 +42,8 @@ class TrackerDetectorActivity final : public Activity {
   static constexpr int MAX_TRACKED = 50;
 
   unsigned long lastScanTime = 0;
+  int spinnerFrame = 0;
+  unsigned long lastSpinnerUpdate = 0;
   static constexpr unsigned long SCAN_INTERVAL_MS = 30000;
   static constexpr unsigned long SCAN_DURATION_S = 3;
   uint16_t scanCycleCount = 0;

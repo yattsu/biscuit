@@ -20,14 +20,12 @@
 #include "SignalTriangulationActivity.h"
 
 // --- Operations sub-tile activities ---
-#include "BeaconTestActivity.h"
 #include "WifiTestActivity.h"
 #include "CaptivePortalActivity.h"
 #include "BleSpamActivity.h"
 #include "BleKeyboardActivity.h"
 #include "AirTagTestActivity.h"
 #include "ApClonerActivity.h"
-#include "UsbHidActivity.h"
 #include "FireActivity.h"
 
 // --- Capture sub-tile activities ---
@@ -170,9 +168,7 @@ void OffenseMenuActivity::openSubTile(int index) {
             // ── OPERATIONS — broadcast + testing tools ──
             std::vector<AppCategoryActivity::AppEntry> e = {
                 AppCategoryActivity::SectionHeader("WIRELESS"),
-                {tr(STR_BEACON_TEST), "Custom beacon broadcasting", UIIcon::Hotspot,
-                 [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<BeaconTestActivity>(r, m); }},
-                {tr(STR_WIFI_TEST), "Wireless connectivity testing", UIIcon::Wifi,
+                {"Deauther", "Targeted disassociation testing", UIIcon::Wifi,
                  [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<WifiTestActivity>(r, m); }},
                 {tr(STR_CAPTIVE_PORTAL), "Network portal for testing", UIIcon::Hotspot,
                  [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<CaptivePortalActivity>(r, m); }},
@@ -189,11 +185,8 @@ void OffenseMenuActivity::openSubTile(int index) {
                  [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<BleSpamActivity>(r, m); }},
                 {tr(STR_BLE_KEYBOARD), "HID keyboard emulation", UIIcon::Transfer,
                  [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<BleKeyboardActivity>(r, m); }},
-                {tr(STR_AIRTAG_TEST), "Device location testing", UIIcon::Hotspot,
+                {"AirTag Spoof", "Device location testing", UIIcon::Hotspot,
                  [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<AirTagTestActivity>(r, m); }},
-                AppCategoryActivity::SectionHeader("USB"),
-                {"USB Keyboard", "Wired DuckyScript via USB-C", UIIcon::Transfer,
-                 [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<UsbHidActivity>(r, m); }},
             };
             app = std::make_unique<AppCategoryActivity>(renderer, mappedInput, "Attack", std::move(e), true, -1);
             break;
@@ -300,7 +293,7 @@ void OffenseMenuActivity::drawTile(int index, int x, int y, int w, int h, bool s
     switch (index) {
         case 0: name = "SCAN";    subtitle = "Target discovery";  itemCount = 4;  break;
         case 1: name = "PROFILE"; subtitle = "Target analysis";   itemCount = 5;  break;
-        case 2: name = "ATTACK";  subtitle = "Tools & testing";   itemCount = 8;  break;
+        case 2: name = "ATTACK";  subtitle = "Tools & testing";   itemCount = 6;  break;
         case 3: name = "CAPTURE"; subtitle = "Review & export";   itemCount = 5;  break;
     }
 

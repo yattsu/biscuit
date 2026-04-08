@@ -35,6 +35,7 @@ class GfxRenderer {
   RenderMode renderMode;
   Orientation orientation;
   bool fadingFix;
+  bool inverted = false;
   uint8_t* frameBuffer = nullptr;
   uint16_t panelWidth = HalDisplay::DISPLAY_WIDTH;
   uint16_t panelHeight = HalDisplay::DISPLAY_HEIGHT;
@@ -79,6 +80,10 @@ class GfxRenderer {
 
   // Fading fix control
   void setFadingFix(const bool enabled) { fadingFix = enabled; }
+
+  // Global display invert: XOR the entire framebuffer at push time.
+  void setInverted(const bool enabled) { inverted = enabled; }
+  bool isInverted() const { return inverted; }
 
   // Screen ops
   int getScreenWidth() const;

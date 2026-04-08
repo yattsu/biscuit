@@ -37,6 +37,8 @@ class BleScannerActivity final : public Activity {
   bool scanning = false;
   bool scanInitialized = false;
   unsigned long lastScanTime = 0;
+  int spinnerFrame = 0;
+  unsigned long lastSpinnerUpdate = 0;
   static constexpr unsigned long SCAN_INTERVAL_MS = 5000;
   static constexpr int MAX_DEVICES = 50;
 

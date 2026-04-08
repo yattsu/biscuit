@@ -189,6 +189,11 @@ void TrackerDetectorActivity::loop() {
 
     case MONITORING: {
       if (needsBleInit) {
+        if (millis() - lastSpinnerUpdate >= 600) {
+          lastSpinnerUpdate = millis();
+          spinnerFrame = (spinnerFrame + 1) % 3;
+          requestUpdate();
+        }
         needsBleInit = false;
         RADIO.ensureBle();
         scanInitialized = true;
@@ -299,7 +304,7 @@ void TrackerDetectorActivity::renderMonitoring() const {
   if (needsBleInit) {
     GUI.drawHeader(renderer, Rect{0, metrics.topPadding, pageWidth, metrics.headerHeight},
                    "Tracker Detector");
-    renderer.drawCenteredText(UI_10_FONT_ID, pageHeight / 2, "Starting BLE...");
+    GUI.drawSpinner(renderer, pageWidth / 2, pageHeight / 2, "STARTING...", spinnerFrame);
     return;
   }
 

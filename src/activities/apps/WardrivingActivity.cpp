@@ -138,6 +138,15 @@ void WardrivingActivity::loop() {
   if (logging) {
     processScanResults();
 
+    // Advance spinner while waiting for initial scan results
+    if (networks.empty()) {
+      if (millis() - lastSpinnerUpdate >= 600) {
+        lastSpinnerUpdate = millis();
+        spinnerFrame = (spinnerFrame + 1) % 3;
+        requestUpdate();
+      }
+    }
+
     // Start next async scan after interval, but only if the previous one finished
     if (WiFi.scanComplete() != WIFI_SCAN_RUNNING &&
         millis() - lastScanTime >= SCAN_INTERVAL_MS) {
@@ -200,8 +209,11 @@ void WardrivingActivity::render(RenderLock&&) {
   const int contentHeight = pageHeight - contentTop - metrics.buttonHintsHeight - metrics.verticalSpacing;
 
   if (networks.empty()) {
-    const char* msg = logging ? "Scanning..." : "Press OK to start";
-    renderer.drawCenteredText(UI_10_FONT_ID, pageHeight / 2, msg);
+    if (logging) {
+      GUI.drawSpinner(renderer, pageWidth / 2, pageHeight / 2, "SCANNING...", spinnerFrame);
+    } else {
+      renderer.drawCenteredText(UI_10_FONT_ID, pageHeight / 2, "Press OK to start");
+    }
   } else {
     GUI.drawList(
         renderer, Rect{0, contentTop, pageWidth, contentHeight},
