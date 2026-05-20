@@ -1,3 +1,11 @@
+// Flock-You — Passive Flock Safety camera detector for Biscuit / Xteink X4
+//
+// Original concept, OUI list, and detection logic by:
+//   colonelpanichacks — https://github.com/colonelpanichacks/flock-you
+//
+// Ported to the Biscuit Activity architecture by deflocker.
+// All credit for the core detection methodology goes to colonelpanichacks.
+
 #pragma once
 #include <cstdint>
 
