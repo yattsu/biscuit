@@ -40,6 +40,7 @@
 #include "WifiScannerActivity.h"
 #include "NetworkMonitorActivity.h"
 #include "DeauthDetectorActivity.h"
+#include "FlockYouActivity.h"
 #include "SsidChannelActivity.h"
 #include "MatrixRainActivity.h"
 #include "MazeActivity.h"
@@ -100,7 +101,7 @@
 
 // Radar home node table — kept in flash (.rodata) as constexpr.
 static constexpr RadarNode kRadarNodes[8] = {
-  {"RECON",    14},
+  {"RECON",    15},
   {"OFFENSE",  21},
   {"DEFENSE",  12},
   {"COMMS",     5},
@@ -162,6 +163,7 @@ void AppsMenuActivity::loop() {
                 {"WiFi Heat Map", "RSSI mapping walkabout", UIIcon::Wifi, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<WifiHeatMapActivity>(r, m); }},
                 {"Signal Locator", "Estimate AP position via RSSI", UIIcon::Wifi, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<SignalTriangulationActivity>(r, m); }},
                 {"Deauth Detector", "Monitor deauth frame spikes", UIIcon::Wifi, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<DeauthDetectorActivity>(r, m); }},
+                {"Flock-You", "Detect Flock Safety cameras (passive)", UIIcon::Wifi, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<FlockYouActivity>(r, m); }},
             };
             app = std::make_unique<AppCategoryActivity>(renderer, mappedInput, "Recon", std::move(e), true, 0);
             break;
@@ -373,6 +375,7 @@ void AppsMenuActivity::loop() {
               {"WiFi Heat Map", "RSSI mapping walkabout", UIIcon::Wifi, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<WifiHeatMapActivity>(r, m); }},
               {"Signal Locator", "Estimate AP position via RSSI", UIIcon::Wifi, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<SignalTriangulationActivity>(r, m); }},
               {"Deauth Detector", "Monitor deauth frame spikes", UIIcon::Wifi, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<DeauthDetectorActivity>(r, m); }},
+              {"Flock-You", "Detect Flock Safety cameras (passive)", UIIcon::Wifi, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<FlockYouActivity>(r, m); }},
           };
           app = std::make_unique<AppCategoryActivity>(renderer, mappedInput, "Recon", std::move(e), true, 0);
           break;
@@ -663,7 +666,7 @@ void AppsMenuActivity::drawTile(int index, int x, int y, int w, int h, bool sele
   int appCount = 0;
 
   switch (index) {
-    case 0: name = "RECON";    subtitle = "Scan & monitor";     appCount = 14; break;
+    case 0: name = "RECON";    subtitle = "Scan & monitor";     appCount = 15; break;
     case 1: name = "OFFENSE";  subtitle = "Scan/profile/test";  appCount = 21; break;
     case 2: name = "DEFENSE";  subtitle = "Ghost & protect";    appCount = 12; break;
     case 3: name = "COMMS";    subtitle = "Chat & share";       appCount = 5;  break;
