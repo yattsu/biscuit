@@ -63,7 +63,7 @@ void WardrivingActivity::stopLogging() {
 
 void WardrivingActivity::appendNetworkToCsv(const SeenNetwork& net) {
   if (filename.empty()) return;
-  FsFile f = Storage.open(filename.c_str(), O_WRITE | O_CREAT | O_APPEND);
+  HalFile f = Storage.open(filename.c_str(), O_WRITE | O_CREAT | O_APPEND);
   if (f) {
     String line = String(net.ssid.c_str()) + "," + net.bssid.c_str() + "," + String(net.rssi) + "," +
                   String(net.channel) + "," + encryptionString(net.encType) + "," + String(net.firstSeen) + "\n";

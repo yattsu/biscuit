@@ -49,6 +49,9 @@ class OpdsParser final : public Print {
   ~OpdsParser();
 
   // Disable copy
+  const std::string& getSearchTemplate() const { return searchTemplate; }
+  const std::string& getNextPageUrl() const { return nextPageUrl; }
+  const std::string& getPrevPageUrl() const { return prevPageUrl; }
   OpdsParser(const OpdsParser&) = delete;
   OpdsParser& operator=(const OpdsParser&) = delete;
 
@@ -58,6 +61,7 @@ class OpdsParser final : public Print {
   void flush() override;
 
   bool error() const;
+  bool truncated() const { return feedTruncated; }
 
   operator bool() { return !error(); }
 
@@ -85,8 +89,13 @@ class OpdsParser final : public Print {
   static void XMLCALL endElement(void* userData, const XML_Char* name);
   static void XMLCALL characterData(void* userData, const XML_Char* s, int len);
 
+  std::string searchTemplate;
+  std::string nextPageUrl;
+  std::string prevPageUrl;
   // Helper to find attribute value
   static const char* findAttribute(const XML_Char** atts, const char* name);
+  static void assignBounded(std::string& target, const char* value, size_t maxLen);
+  static void appendBounded(std::string& target, const char* value, size_t len, size_t maxLen);
 
   XML_Parser parser = nullptr;
   std::vector<OpdsEntry> entries;
@@ -99,6 +108,8 @@ class OpdsParser final : public Print {
   bool inAuthor = false;
   bool inAuthorName = false;
   bool inId = false;
+  bool collectCurrentEntry = false;
 
   bool errorOccured = false;
+  bool feedTruncated = false;
 };

@@ -1,5 +1,8 @@
 #include "Logging.h"
 
+#include <BoardConfig.h>
+#include <esp_rom_sys.h>
+
 #include <string>
 
 #define MAX_ENTRY_LEN 256
@@ -38,41 +41,37 @@ void logPrintf(const char* level, const char* origin, const char* format, ...) {
   va_start(args, format);
   char buf[MAX_ENTRY_LEN];
   char* c = buf;
-  // add the timestamp
+  // add timestamp, level and origin
   {
     unsigned long ms = millis();
-    int len = snprintf(c, sizeof(buf), "[%lu] ", ms);
+    int len = snprintf(c, sizeof(buf), "[%lu] [%s] [%s] ", ms, level, origin);
+    // error while writing => return
     if (len < 0) {
-      return;  // encoding error, skip logging
+      va_end(args);
+      return;
     }
-    c += len;
-  }
-  // add the level
-  {
-    const char* p = level;
-    size_t remaining = sizeof(buf) - (c - buf);
-    while (*p && remaining > 1) {
-      *c++ = *p++;
-      remaining--;
-    }
-    if (remaining > 1) {
-      *c++ = ' ';
-    }
-  }
-  // add the origin
-  {
-    int len = snprintf(c, sizeof(buf) - (c - buf), "[%s] ", origin);
-    if (len < 0) {
-      return;  // encoding error, skip logging
-    }
-    c += len;
+    // clamp c to be in buffer range
+    c += std::min(len, MAX_ENTRY_LEN);
   }
   // add the user message
-  vsnprintf(c, sizeof(buf) - (c - buf), format, args);
+  {
+    int len = vsnprintf(c, sizeof(buf) - (c - buf), format, args);
+    if (len < 0) {
+      va_end(args);
+      return;
+    }
+  }
   va_end(args);
+#if FREEINK_LOG_TRANSPORT == FREEINK_LOG_TRANSPORT_ROM_PRINTF
+  // IDF/ROM console path for boards monitored over USB-Serial-JTAG, where the
+  // HWCDC `operator bool` reads false under `pio device monitor` and logs would
+  // otherwise be silently dropped (e.g. Sticky).
+  esp_rom_printf("%s", buf);
+#else
   if (logSerial) {
     logSerial.print(buf);
   }
+#endif
   addToLogRingBuffer(buf);
 }
 

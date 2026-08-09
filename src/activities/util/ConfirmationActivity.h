@@ -2,8 +2,9 @@
 #include <functional>
 #include <string>
 
-#include "../../fontIds.h"
-#include "../Activity.h"
+#include "activities/Activity.h"
+#include "components/OptionPopup.h"
+#include "fontIds.h"
 
 class ConfirmationActivity : public Activity {
  private:
@@ -17,6 +18,7 @@ class ConfirmationActivity : public Activity {
 
   std::string safeHeading;
   std::string safeBody;
+  OptionPopup confirmPopup;
   int startY = 0;
   int lineHeight = 0;
 

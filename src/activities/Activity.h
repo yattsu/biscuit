@@ -11,6 +11,7 @@
 #include "GfxRenderer.h"
 #include "MappedInputManager.h"
 #include "RenderLock.h"
+#include "util/ScreenshotInfo.h"
 
 class Activity {
   friend class ActivityManager;
@@ -43,6 +44,11 @@ class Activity {
   virtual bool skipLoopDelay() { return false; }
   virtual bool preventAutoSleep() { return false; }
   virtual bool isReaderActivity() const { return false; }
+  // Returns true when the activity schedules its own forced refresh.
+  virtual bool handleForcedRefresh() { return false; }
+  virtual bool isHomeActivity() const { return false; }
+  virtual bool handleHomeGesture() { return false; }
+  virtual ScreenshotInfo getScreenshotInfo() const { return {}; }
 
   // Start a new activity without destroying the current one
   // Note: requestUpdate() will be invoked automatically once resultHandler finishes
@@ -56,6 +62,18 @@ class Activity {
 
   // Convenience method to facilitate API transition to ActivityManager
   // TODO: remove this in near future
-  void onGoHome();
+  void onGoHome(HomeMenuItem item = HomeMenuItem::NONE);
   void onSelectBook(const std::string& path);
+
+ protected:
+  enum class ListTouchResult : uint8_t {
+    None,      // touch did not hit the list
+    Consumed,  // touchdown moved the highlight (repaint already requested)
+    Activated  // tap landed on a row: selectedIndex is updated, caller activates it
+  };
+
+  // Shared touch handling for selectable list screens: touchdown highlights the
+  // touched row, a tap selects and reports Activated. The caller supplies the
+  // list band and runs its own activate action on Activated.
+  ListTouchResult handleListTouch(int& selectedIndex, int itemCount, int listTop, int listHeight, bool hasSubtitle);
 };

@@ -88,6 +88,8 @@
 #include "activities/home/FileBrowserActivity.h"
 #include "activities/home/RecentBooksActivity.h"
 #include "activities/browser/OpdsBookBrowserActivity.h"
+#include "activities/settings/OpdsServerListActivity.h"
+#include "OpdsServerStore.h"
 #include "activities/settings/SettingsActivity.h"
 #include "activities/network/NetworkModeSelectionActivity.h"
 #include "components/UITheme.h"
@@ -263,7 +265,13 @@ void AppsMenuActivity::loop() {
             std::vector<AppCategoryActivity::AppEntry> e = {
                 {"Open Book", "Browse and open an ebook", UIIcon::Book, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<FileBrowserActivity>(r, m); }},
                 {"Recent Books", "Continue where you left off", UIIcon::Recent, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<RecentBooksActivity>(r, m); }},
-                {"OPDS Browser", "Download books from OPDS servers", UIIcon::Library, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<OpdsBookBrowserActivity>(r, m); }},
+                {"OPDS Browser", "Download books from OPDS servers", UIIcon::Library, [](GfxRenderer& r, MappedInputManager& m) -> std::unique_ptr<Activity> {
+                  const auto& servers = OPDS_STORE.getServers();
+                  if (servers.size() == 1) {
+                    return std::make_unique<OpdsBookBrowserActivity>(r, m, servers[0]);
+                  }
+                  return std::make_unique<OpdsServerListActivity>(r, m, true);
+                }},
                 {"Reading Stats", "Pages read, streaks, progress", UIIcon::Book, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<ReadingStatsActivity>(r, m); }},
                 {"Browse Files", "File manager for SD card", UIIcon::Folder, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<FileBrowserActivity>(r, m); }},
             };
@@ -479,7 +487,13 @@ void AppsMenuActivity::loop() {
           std::vector<AppCategoryActivity::AppEntry> e = {
               {"Open Book", "Browse and open an ebook", UIIcon::Book, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<FileBrowserActivity>(r, m); }},
               {"Recent Books", "Continue where you left off", UIIcon::Recent, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<RecentBooksActivity>(r, m); }},
-              {"OPDS Browser", "Download books from OPDS servers", UIIcon::Library, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<OpdsBookBrowserActivity>(r, m); }},
+              {"OPDS Browser", "Download books from OPDS servers", UIIcon::Library, [](GfxRenderer& r, MappedInputManager& m) -> std::unique_ptr<Activity> {
+                  const auto& servers = OPDS_STORE.getServers();
+                  if (servers.size() == 1) {
+                    return std::make_unique<OpdsBookBrowserActivity>(r, m, servers[0]);
+                  }
+                  return std::make_unique<OpdsServerListActivity>(r, m, true);
+                }},
               {"Reading Stats", "Pages read, streaks, progress", UIIcon::Book, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<ReadingStatsActivity>(r, m); }},
               {"Browse Files", "File manager for SD card", UIIcon::Folder, [](GfxRenderer& r, MappedInputManager& m) { return std::make_unique<FileBrowserActivity>(r, m); }},
           };
@@ -595,7 +609,7 @@ void AppsMenuActivity::loadLastUsed() {
     lastUsedName[i][0] = '\0';
     char path[40];
     snprintf(path, sizeof(path), "/biscuit/lastused_%d.txt", i);
-    FsFile file;
+    HalFile file;
     if (Storage.openFileForRead("APPS", path, file)) {
       int len = file.read((uint8_t*)lastUsedName[i], 31);
       if (len > 0) {

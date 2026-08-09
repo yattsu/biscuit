@@ -30,11 +30,12 @@ constexpr ThemeMetrics values = {
     .progressBarMarginTop = 1,
     .statusBarHorizontalMargin = 5,
     .statusBarVerticalMargin = 19,
-    .keyboardKeyWidth = 31,
     .keyboardKeyHeight = 50,
     .keyboardKeySpacing = 0,
-    .keyboardBottomAligned = true,
-    .keyboardCenteredText = true
+    .keyboardCenteredText = true,
+    .keyboardVerticalOffset = -13,
+    .keyboardTextFieldWidthPercent = 85,
+    .keyboardWidthPercent = 94
 };
 }
 

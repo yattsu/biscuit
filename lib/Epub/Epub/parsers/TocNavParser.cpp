@@ -2,8 +2,9 @@
 
 #include <FsHelpers.h>
 #include <Logging.h>
+#include <XmlParserUtils.h>
 
-#include "../BookMetadataCache.h"
+#include "Epub/BookMetadataCache.h"
 
 bool TocNavParser::setup() {
   parser = XML_ParserCreate(nullptr);
@@ -18,15 +19,7 @@ bool TocNavParser::setup() {
   return true;
 }
 
-TocNavParser::~TocNavParser() {
-  if (parser) {
-    XML_StopParser(parser, XML_FALSE);
-    XML_SetElementHandler(parser, nullptr, nullptr);
-    XML_SetCharacterDataHandler(parser, nullptr);
-    XML_ParserFree(parser);
-    parser = nullptr;
-  }
-}
+TocNavParser::~TocNavParser() { destroyXmlParser(parser); }
 
 size_t TocNavParser::write(const uint8_t data) { return write(&data, 1); }
 
@@ -40,11 +33,7 @@ size_t TocNavParser::write(const uint8_t* buffer, const size_t size) {
     void* const buf = XML_GetBuffer(parser, 1024);
     if (!buf) {
       LOG_DBG("NAV", "Couldn't allocate memory for buffer");
-      XML_StopParser(parser, XML_FALSE);
-      XML_SetElementHandler(parser, nullptr, nullptr);
-      XML_SetCharacterDataHandler(parser, nullptr);
-      XML_ParserFree(parser);
-      parser = nullptr;
+      destroyXmlParser(parser);
       return 0;
     }
 
@@ -54,11 +43,7 @@ size_t TocNavParser::write(const uint8_t* buffer, const size_t size) {
     if (XML_ParseBuffer(parser, static_cast<int>(toRead), remainingSize == toRead) == XML_STATUS_ERROR) {
       LOG_DBG("NAV", "Parse error at line %lu: %s", XML_GetCurrentLineNumber(parser),
               XML_ErrorString(XML_GetErrorCode(parser)));
-      XML_StopParser(parser, XML_FALSE);
-      XML_SetElementHandler(parser, nullptr, nullptr);
-      XML_SetCharacterDataHandler(parser, nullptr);
-      XML_ParserFree(parser);
-      parser = nullptr;
+      destroyXmlParser(parser);
       return 0;
     }
 
@@ -141,13 +126,14 @@ void XMLCALL TocNavParser::endElement(void* userData, const XML_Char* name) {
   if (strcmp(name, "a") == 0 && self->state == IN_ANCHOR) {
     // Create TOC entry when closing anchor tag (we have all data now)
     if (!self->currentLabel.empty() && !self->currentHref.empty()) {
-      std::string href = FsHelpers::normalisePath(self->baseContentPath + self->currentHref);
+      const std::string rawTarget = self->baseContentPath + self->currentHref;
+      const size_t pos = rawTarget.find('#');
+      const std::string rawPath = pos == std::string::npos ? rawTarget : rawTarget.substr(0, pos);
+      std::string href = FsHelpers::normalisePath(FsHelpers::decodeUriEscapes(rawPath));
       std::string anchor;
 
-      const size_t pos = href.find('#');
       if (pos != std::string::npos) {
-        anchor = href.substr(pos + 1);
-        href = href.substr(0, pos);
+        anchor = FsHelpers::decodeUriEscapes(rawTarget.substr(pos + 1));
       }
 
       if (self->cache) {

@@ -506,7 +506,7 @@ void SdEncryptionActivity::showMessage(const char* msg, unsigned long durationMs
 // ENC-004: phase 2 — user has verified current PIN; now ask for the new one
 void SdEncryptionActivity::launchChangePinPhase2() {
   startActivityForResult(
-      std::make_unique<KeyboardEntryActivity>(renderer, mappedInput, "Enter new PIN", "", 32, true),
+      std::make_unique<KeyboardEntryActivity>(renderer, mappedInput, "Enter new PIN", "", 32, InputType::Password),
       [this](const ActivityResult& result) {
         changePinPhase2 = false;
 
@@ -589,7 +589,7 @@ void SdEncryptionActivity::loop() {
         // Phase 1: verify current PIN.
         startActivityForResult(
             std::make_unique<KeyboardEntryActivity>(
-                renderer, mappedInput, "Enter current PIN", "", 32, true),
+                renderer, mappedInput, "Enter current PIN", "", 32, InputType::Password),
             [this](const ActivityResult& result) {
               if (result.isCancelled) return;
               const auto& pin = std::get<KeyboardResult>(result.data).text;
@@ -625,7 +625,7 @@ void SdEncryptionActivity::loop() {
 
       // Encrypt (0) or Decrypt (1)
       startActivityForResult(
-          std::make_unique<KeyboardEntryActivity>(renderer, mappedInput, "Enter PIN", "", 32, true),
+          std::make_unique<KeyboardEntryActivity>(renderer, mappedInput, "Enter PIN", "", 32, InputType::Password),
           [this, captured](const ActivityResult& result) {
             if (result.isCancelled) return;
             const auto& pin = std::get<KeyboardResult>(result.data).text;

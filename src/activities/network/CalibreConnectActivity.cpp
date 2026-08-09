@@ -4,13 +4,14 @@
 #include <GfxRenderer.h>
 #include <I18n.h>
 #include <WiFi.h>
-#include <esp_task_wdt.h>
 
 #include "MappedInputManager.h"
+#include "SilentRestart.h"
 #include "WifiSelectionActivity.h"
 #include "components/UITheme.h"
 #include "fontIds.h"
 #include "util/RadioManager.h"
+#include "util/TaskWatchdog.h"
 
 namespace {
 constexpr const char* HOSTNAME = "biscuit";
@@ -52,10 +53,13 @@ void CalibreConnectActivity::onEnter() {
 void CalibreConnectActivity::onExit() {
   Activity::onExit();
 
-  stopWebServer();
   MDNS.end();
 
+  const bool wasWifi = RADIO.getState() == RadioManager::RadioState::WIFI;
   RADIO.shutdown();
+  if (wasWifi) {
+    silentRestart();
+  }
 }
 
 void CalibreConnectActivity::onWifiSelectionComplete(const bool connected) {
@@ -71,6 +75,7 @@ void CalibreConnectActivity::startWebServer() {
   state = CalibreConnectState::SERVER_STARTING;
   requestUpdate();
 
+  MDNS.end();
   if (MDNS.begin(HOSTNAME)) {
     // mDNS is optional for the Calibre plugin but still helpful for users.
     LOG_DBG("CAL", "mDNS started: http://%s.local/", HOSTNAME);
@@ -106,12 +111,12 @@ void CalibreConnectActivity::loop() {
       LOG_DBG("CAL", "WARNING: %lu ms gap since last handleClient", timeSinceLastHandleClient);
     }
 
-    esp_task_wdt_reset();
+    resetTaskWatchdogIfSubscribed();
     constexpr int MAX_ITERATIONS = 80;
     for (int i = 0; i < MAX_ITERATIONS && webServer->isRunning(); i++) {
       webServer->handleClient();
       if ((i & 0x07) == 0x07) {
-        esp_task_wdt_reset();
+        resetTaskWatchdogIfSubscribed();
       }
       if ((i & 0x0F) == 0x0F) {
         yield();

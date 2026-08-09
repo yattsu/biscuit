@@ -51,7 +51,7 @@ class PacketMonitorActivity final : public Activity {
   CaptureMode captureMode = CAPTURE_ALL;
   bool pcapRecording = false;
   SemaphoreHandle_t fileMux = nullptr;
-  FsFile pcapFile;
+  HalFile pcapFile;
   bool pcapFileOpen = false;
   volatile uint32_t packetsSaved = 0;
   volatile uint32_t pcapFileSize = 0;

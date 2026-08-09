@@ -233,7 +233,7 @@ void TargetDB::loadFromSD() {
         return;
     }
 
-    FsFile file;
+    HalFile file;
     if (!Storage.openFileForRead(kModule, kTargetsPath, file)) {
         LOG_ERR(kModule, "Failed to open targets file for read");
         return;
@@ -269,7 +269,7 @@ void TargetDB::loadCache() {
 }
 
 void TargetDB::rewriteSD() {
-    FsFile file;
+    HalFile file;
     if (!Storage.openFileForWrite(kModule, kTargetsPath, file)) {
         LOG_ERR(kModule, "Failed to open targets file for write");
         return;
@@ -293,7 +293,7 @@ void TargetDB::flush() {
 void TargetDB::appendToSD(const Target& t) {
     Storage.mkdir("/biscuit");
     // Open for append: use the raw open() with O_WRITE | O_CREAT | O_APPEND
-    FsFile file = Storage.open(kTargetsPath, O_WRITE | O_CREAT | O_APPEND);
+    HalFile file = Storage.open(kTargetsPath, O_WRITE | O_CREAT | O_APPEND);
     if (!file) {
         LOG_ERR(kModule, "Failed to open targets file for append");
         return;
@@ -310,7 +310,7 @@ void TargetDB::clear() {
 
     // Truncate the file by opening for write (openFileForWrite truncates)
     if (Storage.exists(kTargetsPath)) {
-        FsFile file;
+        HalFile file;
         if (Storage.openFileForWrite(kModule, kTargetsPath, file)) {
             file.close();
         }
@@ -328,7 +328,7 @@ bool TargetDB::exportProfile(const uint8_t mac[6], const char* path) {
 
     const Target& t = cache[idx];
 
-    FsFile file;
+    HalFile file;
     if (!Storage.openFileForWrite(kModule, path, file)) {
         LOG_ERR(kModule, "Failed to open export file: %s", path);
         return false;

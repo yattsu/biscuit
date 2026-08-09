@@ -79,7 +79,7 @@ void WifiHeatMapActivity::processScanResults() {
     sampleCount++;
     unsigned long now = millis();
 
-    FsFile f = Storage.open(filename, O_WRITE | O_CREAT | O_APPEND);
+    HalFile f = Storage.open(filename, O_WRITE | O_CREAT | O_APPEND);
 
     for (int i = 0; i < result && i < MAX_CURRENT; i++) {
       uint8_t* rawBssid = WiFi.BSSID(i);

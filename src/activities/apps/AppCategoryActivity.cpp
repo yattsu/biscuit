@@ -77,7 +77,7 @@ void AppCategoryActivity::loop() {
       if (categoryIndex >= 0) {
         char path[40];
         snprintf(path, sizeof(path), "/biscuit/lastused_%d.txt", categoryIndex);
-        FsFile file;
+        HalFile file;
         if (Storage.openFileForWrite("APPS", path, file)) {
           file.write((const uint8_t*)entries[selectorIndex].nameStrId, strlen(entries[selectorIndex].nameStrId));
           file.close();

@@ -26,6 +26,7 @@ If you'd like to add your name to this list, please open a PR adding yourself an
 ## Italian
 - [andreaturchet](https://github.com/andreaturchet)
 - [fragolinux](https://github.com/fragolinux)
+- [alan0ford](https://github.com/alan0ford)
 
 ## Russian
 - [madebyKir](https://github.com/madebyKir)
@@ -36,6 +37,7 @@ If you'd like to add your name to this list, please open a PR adding yourself an
 - [Skrzakk](https://github.com/Skrzakk)
 - [pablohc](https://github.com/pablohc)
 - [DaniPhii](https://github.com/DaniPhii)
+- [lpla](https://github.com/lpla)
 
 ## Swedish
 - [dawiik](https://github.com/dawiik)
@@ -46,12 +48,14 @@ If you'd like to add your name to this list, please open a PR adding yourself an
 
 ## Catalan
 - [angeldenom](https://github.com/angeldenom)
+- [lpla](https://github.com/lpla)
 
 ## Finnish
 - [plahteenlahti](https://github.com/plahteenlahti)
 
 ## Ukrainian
 - [mirus-ua](https://github.com/mirus-ua)
+- [KymAndriy](https://github.com/KymAndriy)
 
 ## Belarusian
 - [Dexif](https://github.com/dexif)

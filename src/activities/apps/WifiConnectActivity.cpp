@@ -91,7 +91,7 @@ void WifiConnectActivity::selectNetwork(int index) {
   selectedSSID = net.ssid;
   enteredPassword.clear();
 
-  const auto* saved = WIFI_STORE.findCredential(selectedSSID);
+  const auto saved = WIFI_STORE.findCredential(selectedSSID);
   if (saved && !saved->password.empty()) {
     enteredPassword = saved->password;
     attemptConnection();
@@ -100,7 +100,7 @@ void WifiConnectActivity::selectNetwork(int index) {
 
   if (net.encrypted) {
     startActivityForResult(
-        std::make_unique<KeyboardEntryActivity>(renderer, mappedInput, "WiFi Password", "", 64, false),
+        std::make_unique<KeyboardEntryActivity>(renderer, mappedInput, "WiFi Password", "", 64, InputType::Password),
         [this](const ActivityResult& result) {
           if (result.isCancelled) {
             state = LIST;

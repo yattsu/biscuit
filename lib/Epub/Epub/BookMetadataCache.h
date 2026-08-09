@@ -1,10 +1,12 @@
 #pragma once
 
+#include <BufferedFile.h>
 #include <HalStorage.h>
 
 #include <algorithm>
+#include <deque>
+#include <memory>
 #include <string>
-#include <vector>
 
 class BookMetadataCache {
  public:
@@ -18,11 +20,11 @@ class BookMetadataCache {
 
   struct SpineEntry {
     std::string href;
-    size_t cumulativeSize;
+    uint32_t cumulativeSize;
     int16_t tocIndex;
 
     SpineEntry() : cumulativeSize(0), tocIndex(-1) {}
-    SpineEntry(std::string href, const size_t cumulativeSize, const int16_t tocIndex)
+    SpineEntry(std::string href, const uint32_t cumulativeSize, const int16_t tocIndex)
         : href(std::move(href)), cumulativeSize(cumulativeSize), tocIndex(tocIndex) {}
   };
 
@@ -44,16 +46,21 @@ class BookMetadataCache {
 
  private:
   std::string cachePath;
-  size_t lutOffset;
+  uint32_t lutOffset;
   uint16_t spineCount;
   uint16_t tocCount;
   bool loaded;
   bool buildMode;
 
-  FsFile bookFile;
+  HalFile bookFile;
   // Temp file handles during build
-  FsFile spineFile;
-  FsFile tocFile;
+  HalFile spineFile;
+  HalFile tocFile;
+  // Buffers the per-entry tmp-file writes during the OPF/TOC passes: those
+  // writes interleave with zip-inflate SD reads, and unbuffered they thrash
+  // SdFat's shared sector cache (one 512B transaction per 4-byte pod). One
+  // wrapper serves whichever pass is active (spine, then toc).
+  std::unique_ptr<serialization::BufferedFileWriter> passOut;
 
   // Index for fast href→spineIndex lookup (used only for large EPUBs)
   struct SpineHrefIndexEntry {
@@ -61,7 +68,7 @@ class BookMetadataCache {
     uint16_t hrefLen;   // length for collision reduction
     int16_t spineIndex;
   };
-  std::vector<SpineHrefIndexEntry> spineHrefIndex;
+  std::deque<SpineHrefIndexEntry> spineHrefIndex;
   bool useSpineHrefIndex = false;
 
   static constexpr uint16_t LARGE_SPINE_THRESHOLD = 400;
@@ -76,10 +83,10 @@ class BookMetadataCache {
     return hash;
   }
 
-  uint32_t writeSpineEntry(FsFile& file, const SpineEntry& entry) const;
-  uint32_t writeTocEntry(FsFile& file, const TocEntry& entry) const;
-  SpineEntry readSpineEntry(FsFile& file) const;
-  TocEntry readTocEntry(FsFile& file) const;
+  uint32_t writeSpineEntry(HalFile& file, const SpineEntry& entry) const;
+  uint32_t writeTocEntry(HalFile& file, const TocEntry& entry) const;
+  SpineEntry readSpineEntry(HalFile& file) const;
+  TocEntry readTocEntry(HalFile& file) const;
 
  public:
   BookMetadata coreMetadata;

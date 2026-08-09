@@ -31,7 +31,7 @@ class CrossPointWebServer {
 
   // Used by POST upload handler
   struct UploadState {
-    FsFile file;
+    HalFile file;
     String fileName;
     String path = "/";
     size_t size = 0;
@@ -72,6 +72,7 @@ class CrossPointWebServer {
   std::unique_ptr<WebServer> server = nullptr;
   std::unique_ptr<WebSocketsServer> wsServer = nullptr;
   bool running = false;
+  bool watchdogTaskRegistered = false;
   bool apMode = false;  // true when running in AP mode, false for STA mode
   uint16_t port = 80;
   uint16_t wsPort = 81;  // WebSocket port
@@ -107,4 +108,36 @@ class CrossPointWebServer {
   void handleSettingsPage() const;
   void handleGetSettings() const;
   void handlePostSettings();
+
+  // Font management handlers
+  void handleFontsPage() const;
+  void handleFontList() const;
+  void handleFontUpload();
+  void handleFontUploadData();
+  void handleFontDelete();
+
+  // Font upload state
+  struct FontUploadState {
+    HalFile file;
+    std::string familyName;
+    std::string filePath;
+    bool valid = false;
+    bool magicChecked = false;
+    size_t bytesWritten = 0;
+    static constexpr size_t BUFFER_SIZE = 4096;
+    std::vector<uint8_t> buffer;
+    size_t bufferPos = 0;
+
+    FontUploadState() { buffer.resize(BUFFER_SIZE); }
+  } fontUpload;
+
+  // OPDS server handlers
+  void handleGetOpdsServers() const;
+  void handlePostOpdsServer();
+  void handleDeleteOpdsServer();
+
+  // Wi-Fi credential handlers
+  void handleGetWifiNetworks() const;
+  void handlePostWifiNetwork();
+  void handleDeleteWifiNetwork();
 };

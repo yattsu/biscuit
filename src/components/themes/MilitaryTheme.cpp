@@ -178,7 +178,8 @@ void MilitaryTheme::drawList(const GfxRenderer& renderer, Rect rect, int itemCou
                              const std::function<std::string(int index)>& rowTitle,
                              const std::function<std::string(int index)>& rowSubtitle,
                              const std::function<UIIcon(int index)>& rowIcon,
-                             const std::function<std::string(int index)>& rowValue, bool highlightValue) const {
+                             const std::function<std::string(int index)>& rowValue, bool highlightValue,
+                             const std::function<bool(int index)>& /*rowDimmed*/) const {
   const int rowHeight =
       (rowSubtitle != nullptr) ? MilitaryMetrics::values.listWithSubtitleRowHeight : MilitaryMetrics::values.listRowHeight;
   const int pageItems = rect.height / rowHeight;
@@ -347,35 +348,6 @@ void MilitaryTheme::drawButtonMenu(GfxRenderer& renderer, Rect rect, int buttonC
   }
 }
 
-// --- Progress bar: text-based |||||||---- style ---
-void MilitaryTheme::drawProgressBar(const GfxRenderer& renderer, Rect rect, const size_t current,
-                                    const size_t total) const {
-  if (total == 0) {
-    return;
-  }
-
-  const int percent = static_cast<int>((static_cast<uint64_t>(current) * 100) / total);
-
-  // Draw sharp outline
-  renderer.drawRect(rect.x, rect.y, rect.width, rect.height);
-
-  // Filled portion
-  const int fillWidth = (rect.width - 4) * percent / 100;
-  if (fillWidth > 0) {
-    renderer.fillRect(rect.x + 2, rect.y + 2, fillWidth, rect.height - 4);
-  }
-
-  // Text-based percentage below
-  std::string progressText;
-  constexpr int barChars = 20;
-  const int filledChars = barChars * percent / 100;
-  for (int i = 0; i < barChars; i++) {
-    progressText += (i < filledChars) ? '|' : '-';
-  }
-  progressText += " " + std::to_string(percent) + "%";
-  renderer.drawCenteredText(UI_10_FONT_ID, rect.y + rect.height + 15, progressText.c_str());
-}
-
 // --- Popup: double border with corner brackets ---
 Rect MilitaryTheme::drawPopup(const GfxRenderer& renderer, const char* message) const {
   constexpr int margin = 20;
@@ -424,36 +396,10 @@ void MilitaryTheme::fillPopupProgress(const GfxRenderer& renderer, const Rect& l
 }
 
 // --- Text field: sharp brackets ---
-void MilitaryTheme::drawTextField(const GfxRenderer& renderer, Rect rect, const int textWidth) const {
+void MilitaryTheme::drawTextField(const GfxRenderer& renderer, Rect rect, const int textWidth,
+                                  bool /*cursorMode*/, int /*contentStartX*/, int /*contentWidth*/) const {
   renderer.drawText(UI_10_FONT_ID, rect.x + 8, rect.y, "[");
   renderer.drawText(UI_10_FONT_ID, rect.x + rect.width - 14, rect.y + rect.height, "]");
   // Draw underline for the input area
   renderer.drawLine(rect.x + 20, rect.y + rect.height, rect.x + rect.width - 20, rect.y + rect.height);
-}
-
-// --- Keyboard key: inverted when selected ---
-void MilitaryTheme::drawKeyboardKey(const GfxRenderer& renderer, Rect rect, const char* label,
-                                    const bool isSelected) const {
-  const int itemWidth = renderer.getTextWidth(UI_10_FONT_ID, label);
-  const int textX = rect.x + (rect.width - itemWidth) / 2;
-
-  if (isSelected) {
-    // Inverted key
-    renderer.fillRect(rect.x, rect.y - 2, rect.width, rect.height);
-    renderer.drawText(UI_10_FONT_ID, textX, rect.y, label, false);
-  } else {
-    renderer.drawText(UI_10_FONT_ID, textX, rect.y, label);
-  }
-}
-
-// --- Help text: uppercase ---
-void MilitaryTheme::drawHelpText(const GfxRenderer& renderer, Rect rect, const char* label) const {
-  std::string upperLabel(label);
-  for (auto& c : upperLabel) {
-    c = static_cast<char>(toupper(static_cast<unsigned char>(c)));
-  }
-  const auto& metrics = UITheme::getInstance().getMetrics();
-  auto truncatedLabel = renderer.truncatedText(SMALL_FONT_ID, upperLabel.c_str(),
-                                               rect.width - metrics.contentSidePadding * 2, EpdFontFamily::REGULAR);
-  renderer.drawCenteredText(SMALL_FONT_ID, rect.y, truncatedLabel.c_str());
 }

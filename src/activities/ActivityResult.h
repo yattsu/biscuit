@@ -25,19 +25,32 @@ struct MenuResult {
 
 struct ChapterResult {
   int spineIndex = 0;
+  std::string anchor;
 };
 
 struct PercentResult {
   int percent = 0;
 };
 
+struct IntervalResult {
+  uint32_t value = 0;
+};
+
 struct PageResult {
   uint32_t page = 0;
 };
 
-struct SyncResult {
+struct ProgressChangeResult {
   int spineIndex = 0;
   int page = 0;
+  int totalPages = 0;
+  std::string xpath;
+  float percentage = 0.0f;
+  bool hasSavedProgress = false;
+  // Exact visible-codepoint offset within spineIndex, when the source (a bookmark) has one.
+  // Preferred over xpath/percentage on resolution: it is immune to re-pagination.
+  bool hasVisibleTextOffset = false;
+  uint32_t visibleTextOffset = 0;
 };
 
 enum class NetworkMode;
@@ -50,8 +63,13 @@ struct FootnoteResult {
   std::string href;
 };
 
-using ResultVariant = std::variant<std::monostate, WifiResult, KeyboardResult, MenuResult, ChapterResult, PercentResult,
-                                   PageResult, SyncResult, NetworkModeResult, FootnoteResult>;
+struct FilePathResult {
+  std::string path;
+};
+
+using ResultVariant =
+    std::variant<std::monostate, WifiResult, KeyboardResult, MenuResult, ChapterResult, PercentResult, IntervalResult,
+                 PageResult, ProgressChangeResult, NetworkModeResult, FootnoteResult, FilePathResult>;
 
 struct ActivityResult {
   bool isCancelled = false;
@@ -59,7 +77,8 @@ struct ActivityResult {
 
   explicit ActivityResult() = default;
 
-  template <typename ResultType, typename = std::enable_if_t<std::is_constructible_v<ResultVariant, ResultType&&>>>
+  template <typename ResultType>
+    requires std::is_constructible_v<ResultVariant, ResultType&&>
   // cppcheck-suppress noExplicitConstructor
   ActivityResult(ResultType&& result) : data{std::forward<ResultType>(result)} {}
 };

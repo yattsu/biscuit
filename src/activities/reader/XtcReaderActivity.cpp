@@ -12,18 +12,17 @@
 #include <HalStorage.h>
 #include <I18n.h>
 
+#include <algorithm>
+
 #include "CrossPointSettings.h"
 #include "CrossPointState.h"
 #include "MappedInputManager.h"
+#include "ProgressFile.h"
+#include "ReaderUtils.h"
 #include "RecentBooksStore.h"
 #include "XtcReaderChapterSelectionActivity.h"
 #include "components/UITheme.h"
 #include "fontIds.h"
-
-namespace {
-constexpr unsigned long skipPageMs = 700;
-constexpr unsigned long goHomeMs = 1000;
-}  // namespace
 
 void XtcReaderActivity::onEnter() {
   Activity::onEnter();
@@ -54,58 +53,88 @@ void XtcReaderActivity::onExit() {
   xtc.reset();
 }
 
+void XtcReaderActivity::openChapterSelection() {
+  if (xtc && xtc->hasChapters() && !xtc->getChapters().empty()) {
+    startActivityForResult(std::make_unique<XtcReaderChapterSelectionActivity>(renderer, mappedInput, xtc, currentPage),
+                           [this](const ActivityResult& result) {
+                             if (!result.isCancelled) {
+                               currentPage = std::get<PageResult>(result.data).page;
+                             }
+                           });
+  }
+}
+
 void XtcReaderActivity::loop() {
-  // Enter chapter selection activity
-  if (mappedInput.wasReleased(MappedInputManager::Button::Confirm)) {
-    if (xtc && xtc->hasChapters() && !xtc->getChapters().empty()) {
-      startActivityForResult(
-          std::make_unique<XtcReaderChapterSelectionActivity>(renderer, mappedInput, xtc, currentPage),
-          [this](const ActivityResult& result) {
-            if (!result.isCancelled) {
-              currentPage = std::get<PageResult>(result.data).page;
-            }
-          });
+  if (!xtc) {
+    return;
+  }
+
+  const auto touch = ReaderUtils::detectTouchPageTurn(renderer, mappedInput);
+
+  const bool atEndOfBook = currentPage >= xtc->getPageCount();
+
+  // While the end screen suggestion menu is showing it owns Confirm/Back/navigation
+  // input. Anything it doesn't handle (e.g. long-press Back to the file browser) falls
+  // through to the regular handlers below; page turns are absorbed by the end-of-book
+  // block.
+  if (atEndOfBook && endOfBookOptions.menuActive()) {
+    std::string openPath;
+    switch (endOfBookOptions.handleMenuInput(mappedInput, &openPath)) {
+      case EndOfBookOptions::Action::OpenBook:
+        activityManager.goToReader(openPath);
+        return;
+      case EndOfBookOptions::Action::GoHome:
+        onGoHome();
+        return;
+      case EndOfBookOptions::Action::LastPage:
+        currentPage = xtc->getPageCount() > 0 ? xtc->getPageCount() - 1 : 0;
+        requestUpdate();
+        return;
+      case EndOfBookOptions::Action::Redraw:
+        requestUpdate();
+        return;
+      case EndOfBookOptions::Action::None:
+        break;
     }
   }
 
-  // Long press BACK (1s+) goes to file selection
-  if (mappedInput.isPressed(MappedInputManager::Button::Back) && mappedInput.getHeldTime() >= goHomeMs) {
-    activityManager.goToFileBrowser(xtc ? xtc->getPath() : "");
+  // Enter chapter selection activity
+  if (mappedInput.wasReleased(MappedInputManager::Button::Confirm) || ReaderUtils::isTouchMenuGesture(mappedInput)) {
+    openChapterSelection();
+  }
+
+  if (ReaderUtils::handleBackNavigation(mappedInput, activityManager, xtc ? xtc->getPath().c_str() : "",
+                                        {this, [](void* ctx) { static_cast<XtcReaderActivity*>(ctx)->onGoHome(); }})) {
     return;
   }
 
-  // Short press BACK goes directly to home
-  if (mappedInput.wasReleased(MappedInputManager::Button::Back) && mappedInput.getHeldTime() < goHomeMs) {
-    onGoHome();
-    return;
-  }
-
-  // When long-press chapter skip is disabled, turn pages on press instead of release.
-  const bool usePressForPageTurn = !SETTINGS.longPressChapterSkip;
-  const bool prevTriggered = usePressForPageTurn ? (mappedInput.wasPressed(MappedInputManager::Button::PageBack) ||
-                                                    mappedInput.wasPressed(MappedInputManager::Button::Left))
-                                                 : (mappedInput.wasReleased(MappedInputManager::Button::PageBack) ||
-                                                    mappedInput.wasReleased(MappedInputManager::Button::Left));
-  const bool powerPageTurn = SETTINGS.shortPwrBtn == CrossPointSettings::SHORT_PWRBTN::PAGE_TURN &&
-                             mappedInput.wasReleased(MappedInputManager::Button::Power);
-  const bool nextTriggered = usePressForPageTurn
-                                 ? (mappedInput.wasPressed(MappedInputManager::Button::PageForward) || powerPageTurn ||
-                                    mappedInput.wasPressed(MappedInputManager::Button::Right))
-                                 : (mappedInput.wasReleased(MappedInputManager::Button::PageForward) || powerPageTurn ||
-                                    mappedInput.wasReleased(MappedInputManager::Button::Right));
-
+  auto [prevTriggered, nextTriggered, fromTilt] = ReaderUtils::detectPageTurn(mappedInput);
+  prevTriggered = prevTriggered || touch.prev;
+  nextTriggered = nextTriggered || touch.next;
   if (!prevTriggered && !nextTriggered) {
     return;
   }
 
-  // Handle end of book
+  // At end of the book with no suggestion menu, forward button goes home and back
+  // button returns to last page
   if (currentPage >= xtc->getPageCount()) {
-    currentPage = xtc->getPageCount() - 1;
-    requestUpdate();
+    if (endOfBookOptions.menuActive()) {
+      // Selection movement was handled above; absorb leftover page-turn triggers so
+      // e.g. "previous" at the top of the list doesn't jump back into the book
+      return;
+    }
+    if (nextTriggered) {
+      onGoHome();
+    } else {
+      currentPage = xtc->getPageCount() - 1;
+      requestUpdate();
+    }
     return;
   }
 
-  const bool skipPages = SETTINGS.longPressChapterSkip && mappedInput.getHeldTime() > skipPageMs;
+  const unsigned long heldMs = (touch.prev || touch.next) ? touch.heldMs : mappedInput.getHeldTime();
+  const bool skipPages =
+      !fromTilt && SETTINGS.longPressButtonBehavior == SETTINGS.CHAPTER_SKIP && heldMs > ReaderUtils::SKIP_HOLD_MS;
   const int skipAmount = skipPages ? 10 : 1;
 
   if (prevTriggered) {
@@ -131,15 +160,88 @@ void XtcReaderActivity::render(RenderLock&&) {
 
   // Bounds check
   if (currentPage >= xtc->getPageCount()) {
-    // Show end of book screen
+    // Show end of book screen. Sole load site: runs on the render task (serialized by
+    // RenderLock); the main task only reads the suggestions once the flag is published.
+    endOfBookOptions.loadOnce(xtc->getPath());
     renderer.clearScreen();
-    renderer.drawCenteredText(UI_12_FONT_ID, 300, tr(STR_END_OF_BOOK), true, EpdFontFamily::BOLD);
+    endOfBookOptions.render(renderer, mappedInput);
     renderer.displayBuffer();
     return;
   }
 
   renderPage();
   saveProgress();
+}
+
+XtcReaderActivity::StatusBarInfo XtcReaderActivity::getStatusBarInfo() const {
+  const auto sb = SETTINGS.statusBarSpec();
+  const int bookPageCount = static_cast<int>(xtc->getPageCount());
+  const int bookPage = static_cast<int>(currentPage) + 1;
+  std::string title = sb.titleMode == CrossPointSettings::STATUS_BAR_TITLE::BOOK_TITLE ? xtc->getTitle() : "";
+
+  if (!xtc->hasChapters()) {
+    return StatusBarInfo{bookPage, bookPageCount, std::move(title)};
+  }
+
+  const auto& chapters = xtc->getChapters();
+  const auto chapterIt = std::find_if(chapters.begin(), chapters.end(), [this](const xtc::ChapterInfo& chapter) {
+    return currentPage >= chapter.startPage && currentPage <= chapter.endPage;
+  });
+
+  if (chapterIt == chapters.end() || chapterIt->endPage < chapterIt->startPage) {
+    return StatusBarInfo{bookPage, bookPageCount, std::move(title)};
+  }
+
+  if (sb.titleMode == CrossPointSettings::STATUS_BAR_TITLE::CHAPTER_TITLE) {
+    title = chapterIt->name.empty() ? tr(STR_UNNAMED) : chapterIt->name;
+  }
+
+  return StatusBarInfo{static_cast<int>(currentPage - chapterIt->startPage) + 1,
+                       static_cast<int>(chapterIt->endPage - chapterIt->startPage) + 1, std::move(title)};
+}
+
+void XtcReaderActivity::renderStatusBarOverlay(const StatusBarOverlayPosition position) const {
+  const auto sb = SETTINGS.statusBarSpec();
+  const bool drawBottom = sb.xtcMode == CrossPointSettings::XTC_STATUS_BAR_MODE::XTC_STATUS_BAR_BOTTOM &&
+                          position == StatusBarOverlayPosition::Bottom;
+  const bool drawTop = sb.xtcMode == CrossPointSettings::XTC_STATUS_BAR_MODE::XTC_STATUS_BAR_TOP &&
+                       position == StatusBarOverlayPosition::Top;
+  if (!drawBottom && !drawTop) {
+    return;
+  }
+
+  const int statusBarHeight = UITheme::getInstance().getStatusBarHeight();
+  if (statusBarHeight <= 0) {
+    return;
+  }
+
+  int orientedMarginTop, orientedMarginRight, orientedMarginBottom, orientedMarginLeft;
+  renderer.getOrientedViewableTRBL(&orientedMarginTop, &orientedMarginRight, &orientedMarginBottom,
+                                   &orientedMarginLeft);
+
+  int clearY;
+  int paddingBottom = 0;
+  if (position == StatusBarOverlayPosition::Bottom) {
+    clearY = renderer.getScreenHeight() - orientedMarginBottom - statusBarHeight - 4;
+    if (clearY < 0) {
+      clearY = 0;
+    }
+  } else {
+    clearY = orientedMarginTop;
+    paddingBottom = renderer.getScreenHeight() - statusBarHeight - orientedMarginBottom - orientedMarginTop - 4;
+  }
+  const int clearHeight = position == StatusBarOverlayPosition::Bottom
+                              ? renderer.getScreenHeight() - orientedMarginBottom - clearY
+                              : statusBarHeight + 4;
+  if (clearHeight > 0) {
+    renderer.fillRect(0, clearY, renderer.getScreenWidth(), clearHeight, false);
+  }
+
+  const int pageCount = static_cast<int>(xtc->getPageCount());
+  const int displayPage = static_cast<int>(currentPage) + 1;
+  const float progress = pageCount > 0 ? (static_cast<float>(displayPage) * 100.0f) / pageCount : 0.0f;
+  const auto pageInfo = getStatusBarInfo();
+  GUI.drawStatusBar(renderer, progress, pageInfo.currentPage, pageInfo.pageCount, pageInfo.title, paddingBottom);
 }
 
 void XtcReaderActivity::renderPage() {
@@ -170,7 +272,8 @@ void XtcReaderActivity::renderPage() {
   // Load page data
   size_t bytesRead = xtc->loadPage(currentPage, pageBuffer, pageBufferSize);
   if (bytesRead == 0) {
-    LOG_ERR("XTR", "Failed to load page %lu", currentPage);
+    LOG_ERR("XTR", "Failed to load page %lu: bufferSize=%lu bitDepth=%u error=%s", currentPage, pageBufferSize,
+            bitDepth, xtc::errorToString(xtc->getLastError()));
     free(pageBuffer);
     renderer.clearScreen();
     renderer.drawCenteredText(UI_12_FONT_ID, 300, tr(STR_PAGE_LOAD_ERROR), true, EpdFontFamily::BOLD);
@@ -231,12 +334,17 @@ void XtcReaderActivity::renderPage() {
       }
     }
 
-    // Display BW with conditional refresh based on pagesUntilFullRefresh
     if (pagesUntilFullRefresh <= 1) {
+      // Periodic ghost cleanup: scrub via the normal path, then run the
+      // settle flavor of the grayscale base pass (DTM planes are equal after
+      // the display sync, so only the gentle reinforcement cells fire).
       renderer.displayBuffer(HalDisplay::HALF_REFRESH);
+      renderer.preconditionGrayscale();
       pagesUntilFullRefresh = SETTINGS.getRefreshFrequency();
     } else {
-      renderer.displayBuffer();
+      // OEM grayscale pipeline base: differential "AA-pre-BW(mid)" update as
+      // the page turn on X3; plain FAST refresh on X4 (previous behavior).
+      renderer.displayGrayscaleBase(HalDisplay::FAST_REFRESH);
       pagesUntilFullRefresh--;
     }
 
@@ -308,35 +416,30 @@ void XtcReaderActivity::renderPage() {
 
   free(pageBuffer);
 
-  // XTC pages already have status bar pre-rendered, no need to add our own
-
-  // Display with appropriate refresh
-  if (pagesUntilFullRefresh <= 1) {
-    renderer.displayBuffer(HalDisplay::HALF_REFRESH);
-    pagesUntilFullRefresh = SETTINGS.getRefreshFrequency();
+  if (SETTINGS.statusBarSpec().xtcMode == CrossPointSettings::XTC_STATUS_BAR_MODE::XTC_STATUS_BAR_TOP) {
+    renderStatusBarOverlay(StatusBarOverlayPosition::Top);
   } else {
-    renderer.displayBuffer();
-    pagesUntilFullRefresh--;
+    renderStatusBarOverlay(StatusBarOverlayPosition::Bottom);
   }
+
+  ReaderUtils::displayWithRefreshCycle(renderer, pagesUntilFullRefresh);
 
   LOG_DBG("XTR", "Rendered page %lu/%lu (%u-bit)", currentPage + 1, xtc->getPageCount(), bitDepth);
 }
 
 void XtcReaderActivity::saveProgress() const {
-  FsFile f;
-  if (Storage.openFileForWrite("XTR", xtc->getCachePath() + "/progress.bin", f)) {
-    uint8_t data[4];
-    data[0] = currentPage & 0xFF;
-    data[1] = (currentPage >> 8) & 0xFF;
-    data[2] = (currentPage >> 16) & 0xFF;
-    data[3] = (currentPage >> 24) & 0xFF;
-    f.write(data, 4);
-    f.close();
+  uint8_t data[4];
+  data[0] = currentPage & 0xFF;
+  data[1] = (currentPage >> 8) & 0xFF;
+  data[2] = (currentPage >> 16) & 0xFF;
+  data[3] = (currentPage >> 24) & 0xFF;
+  if (!ProgressFile::writeAtomic(xtc->getCachePath(), data, sizeof(data))) {
+    LOG_ERR("XTR", "Failed to save progress: page %lu", currentPage);
   }
 }
 
 void XtcReaderActivity::loadProgress() {
-  FsFile f;
+  HalFile f;
   if (Storage.openFileForRead("XTR", xtc->getCachePath() + "/progress.bin", f)) {
     uint8_t data[4];
     if (f.read(data, 4) == 4) {
@@ -350,4 +453,22 @@ void XtcReaderActivity::loadProgress() {
     }
     f.close();
   }
+}
+
+ScreenshotInfo XtcReaderActivity::getScreenshotInfo() const {
+  ScreenshotInfo info;
+  info.readerType = ScreenshotInfo::ReaderType::Xtc;
+  if (xtc) {
+    const std::string t = xtc->getTitle();
+    snprintf(info.title, sizeof(info.title), "%s", t.c_str());
+    const uint32_t pageCount = xtc->getPageCount();
+    info.totalPages = pageCount;
+    // Clamp to last valid page to avoid sentinel value (currentPage == pageCount)
+    uint32_t clampedPage = (pageCount > 0 && currentPage >= pageCount) ? pageCount - 1 : currentPage;
+    info.progressPercent = pageCount > 0 ? xtc->calculateProgress(clampedPage) : 0;
+    info.currentPage = static_cast<int>(clampedPage) + 1;
+  } else {
+    info.currentPage = currentPage + 1;
+  }
+  return info;
 }

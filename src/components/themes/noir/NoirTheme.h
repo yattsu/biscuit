@@ -31,17 +31,17 @@ constexpr ThemeMetrics values = {
     .progressBarMarginTop = 1,
     .statusBarHorizontalMargin = 5,
     .statusBarVerticalMargin = 19,
-    .keyboardKeyWidth = 31,
     .keyboardKeyHeight = 50,
     .keyboardKeySpacing = 0,
-    .keyboardBottomAligned = true,
-    .keyboardCenteredText = true
+    .keyboardCenteredText = true,
+    .keyboardVerticalOffset = -13,
+    .keyboardTextFieldWidthPercent = 85,
+    .keyboardWidthPercent = 94
 };
 }
 
 class NoirTheme : public LyraTheme {
  public:
-  void drawBatteryRight(const GfxRenderer& renderer, Rect rect, bool showPercentage = true) const override;
   void drawHeader(const GfxRenderer& renderer, Rect rect, const char* title, const char* subtitle) const override;
   void drawSubHeader(const GfxRenderer& renderer, Rect rect, const char* label,
                      const char* rightLabel = nullptr) const override;
@@ -52,7 +52,8 @@ class NoirTheme : public LyraTheme {
                 const std::function<std::string(int index)>& rowSubtitle,
                 const std::function<UIIcon(int index)>& rowIcon,
                 const std::function<std::string(int index)>& rowValue,
-                bool highlightValue) const override;
+                bool highlightValue,
+                const std::function<bool(int index)>& rowDimmed = nullptr) const override;
   void drawButtonHints(GfxRenderer& renderer, const char* btn1, const char* btn2, const char* btn3,
                        const char* btn4) const override;
   void drawSideButtonHints(const GfxRenderer& renderer, const char* topBtn, const char* bottomBtn) const override;

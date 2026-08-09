@@ -26,7 +26,7 @@ static constexpr char kConfigPath[] = "/biscuit/ghost.dat";
 
 void GhostActivity::loadConfig() {
     config = GhostConfig{};
-    FsFile file;
+    HalFile file;
     if (Storage.openFileForRead(kModule, kConfigPath, file)) {
         file.read(reinterpret_cast<uint8_t*>(&config), sizeof(GhostConfig));
         file.close();
@@ -35,7 +35,7 @@ void GhostActivity::loadConfig() {
 
 void GhostActivity::saveConfig() {
     Storage.mkdir("/biscuit");
-    FsFile file;
+    HalFile file;
     if (Storage.openFileForWrite(kModule, kConfigPath, file)) {
         file.write(reinterpret_cast<const uint8_t*>(&config), sizeof(GhostConfig));
         file.close();

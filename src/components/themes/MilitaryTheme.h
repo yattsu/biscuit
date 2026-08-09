@@ -30,23 +30,24 @@ constexpr ThemeMetrics values = {.batteryWidth = 15,
                                  .progressBarMarginTop = 1,
                                  .statusBarHorizontalMargin = 5,
                                  .statusBarVerticalMargin = 19,
-                                 .keyboardKeyWidth = 22,
                                  .keyboardKeyHeight = 30,
                                  .keyboardKeySpacing = 10,
-                                 .keyboardBottomAligned = false,
-                                 .keyboardCenteredText = false};
+                                 .keyboardCenteredText = false,
+                                 .keyboardVerticalOffset = -13,
+                                 .keyboardTextFieldWidthPercent = 85,
+                                 .keyboardWidthPercent = 94};
 }
 
 class MilitaryTheme : public BaseTheme {
  public:
-  void drawProgressBar(const GfxRenderer& renderer, Rect rect, size_t current, size_t total) const override;
   void drawButtonHints(GfxRenderer& renderer, const char* btn1, const char* btn2, const char* btn3,
                        const char* btn4) const override;
   void drawList(const GfxRenderer& renderer, Rect rect, int itemCount, int selectedIndex,
                 const std::function<std::string(int index)>& rowTitle,
                 const std::function<std::string(int index)>& rowSubtitle,
                 const std::function<UIIcon(int index)>& rowIcon, const std::function<std::string(int index)>& rowValue,
-                bool highlightValue) const override;
+                bool highlightValue,
+                const std::function<bool(int index)>& rowDimmed = nullptr) const override;
   void drawHeader(const GfxRenderer& renderer, Rect rect, const char* title, const char* subtitle) const override;
   void drawSubHeader(const GfxRenderer& renderer, Rect rect, const char* label,
                      const char* rightLabel = nullptr) const override;
@@ -57,8 +58,6 @@ class MilitaryTheme : public BaseTheme {
                       const std::function<UIIcon(int index)>& rowIcon) const override;
   Rect drawPopup(const GfxRenderer& renderer, const char* message) const override;
   void fillPopupProgress(const GfxRenderer& renderer, const Rect& layout, const int progress) const override;
-  void drawTextField(const GfxRenderer& renderer, Rect rect, const int textWidth) const override;
-  void drawKeyboardKey(const GfxRenderer& renderer, Rect rect, const char* label,
-                       const bool isSelected) const override;
-  void drawHelpText(const GfxRenderer& renderer, Rect rect, const char* label) const override;
+  void drawTextField(const GfxRenderer& renderer, Rect rect, const int textWidth, bool cursorMode = false,
+                     int contentStartX = 0, int contentWidth = 0) const override;
 };

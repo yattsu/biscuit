@@ -1,25 +1,39 @@
 #include "ActivityManager.h"
 
+#include <FontCacheManager.h>
 #include <HalPowerManager.h>
 
+#include <algorithm>
+
+#include "OpdsServerStore.h"
 #include "boot_sleep/BootActivity.h"
 #include "boot_sleep/SleepActivity.h"
 #include "browser/OpdsBookBrowserActivity.h"
+#include "home/CrashActivity.h"
 #include "home/FileBrowserActivity.h"
 #include "home/HomeActivity.h"
 #include "apps/AppsMenuActivity.h"
 #include "home/RecentBooksActivity.h"
 #include "network/CrossPointWebServerActivity.h"
 #include "reader/ReaderActivity.h"
+#include "settings/OpdsServerListActivity.h"
 #include "settings/SettingsActivity.h"
 #include "util/FullScreenMessageActivity.h"
 
+static portMUX_TYPE activityManagerSpinlock = portMUX_INITIALIZER_UNLOCKED;
+
 void ActivityManager::begin() {
-  xTaskCreate(&renderTaskTrampoline, "ActivityManagerRender",
-              8192,              // Stack size
-              this,              // Parameters
-              1,                 // Priority
-              &renderTaskHandle  // Task handle
+#if defined(configNUM_CORES) && configNUM_CORES > 1
+  constexpr BaseType_t renderTaskCore = 1;
+#else
+  constexpr BaseType_t renderTaskCore = 0;
+#endif
+  xTaskCreatePinnedToCore(&renderTaskTrampoline, "ActivityManagerRender",
+                          8192,               // Stack size
+                          this,               // Parameters
+                          1,                  // Priority
+                          &renderTaskHandle,  // Task handle
+                          renderTaskCore  // Keep long renders/cover decodes off CPU 0's idle watchdog when available
   );
   assert(renderTaskHandle != nullptr && "Failed to create render task");
 }
@@ -41,10 +55,10 @@ void ActivityManager::renderTaskLoop() {
     }
     // Notify any task blocked in requestUpdateAndWait() that the render is done.
     TaskHandle_t waiter = nullptr;
-    taskENTER_CRITICAL(nullptr);
+    taskENTER_CRITICAL(&activityManagerSpinlock);
     waiter = waitingTaskHandle;
     waitingTaskHandle = nullptr;
-    taskEXIT_CRITICAL(nullptr);
+    taskEXIT_CRITICAL(&activityManagerSpinlock);
     if (waiter) {
       xTaskNotify(waiter, 1, eIncrement);
     }
@@ -53,6 +67,14 @@ void ActivityManager::renderTaskLoop() {
 
 void ActivityManager::loop() {
   if (currentActivity) {
+    if (!currentActivity->isHomeActivity() && mappedInput.wasHomeGesture()) {
+      if (currentActivity->handleHomeGesture()) {
+        return;
+      }
+      goHome();
+      return;
+    }
+
     // Note: do not hold a lock here, the loop() method must be responsible for acquire one if needed
     currentActivity->loop();
   }
@@ -132,8 +154,7 @@ void ActivityManager::loop() {
     }
   }
 
-  if (requestedUpdate) {
-    requestedUpdate = false;
+  if (requestedUpdate.exchange(false)) {
     // Using direct notification to signal the render task to update
     // Increment counter so multiple rapid calls won't be lost
     if (renderTaskHandle) {
@@ -179,15 +200,21 @@ void ActivityManager::goToRecentBooks() {
 }
 
 void ActivityManager::goToBrowser() {
-  replaceActivity(std::make_unique<OpdsBookBrowserActivity>(renderer, mappedInput));
+  const auto& servers = OPDS_STORE.getServers();
+  // Skip the server picker when there's only one server configured
+  if (servers.size() == 1) {
+    replaceActivity(std::make_unique<OpdsBookBrowserActivity>(renderer, mappedInput, servers[0]));
+  } else {
+    replaceActivity(std::make_unique<OpdsServerListActivity>(renderer, mappedInput, true));
+  }
 }
 
-void ActivityManager::goToReader(std::string path) {
-  replaceActivity(std::make_unique<ReaderActivity>(renderer, mappedInput, std::move(path)));
+void ActivityManager::goToReader(std::string path, const bool allowFastInitialRefresh) {
+  replaceActivity(std::make_unique<ReaderActivity>(renderer, mappedInput, std::move(path), allowFastInitialRefresh));
 }
 
-void ActivityManager::goToSleep() {
-  replaceActivity(std::make_unique<SleepActivity>(renderer, mappedInput));
+void ActivityManager::goToSleep(bool fromTimeout) {
+  replaceActivity(std::make_unique<SleepActivity>(renderer, mappedInput, fromTimeout));
   loop();  // Important: sleep screen must be rendered immediately, the caller will go to sleep right after this returns
 }
 
@@ -197,7 +224,12 @@ void ActivityManager::goToFullScreenMessage(std::string message, EpdFontFamily::
   replaceActivity(std::make_unique<FullScreenMessageActivity>(renderer, mappedInput, std::move(message), style));
 }
 
-void ActivityManager::goHome() { replaceActivity(std::make_unique<AppsMenuActivity>(renderer, mappedInput)); }
+void ActivityManager::goHome(HomeMenuItem /*initialMenuItem*/) {
+  // Biscuit's home is the AppsMenu dashboard, not upstream's single-list
+  // HomeActivity, so there is no per-item deep link to land on yet.
+  replaceActivity(std::make_unique<AppsMenuActivity>(renderer, mappedInput));
+}
+void ActivityManager::goToCrashReport() { replaceActivity(std::make_unique<CrashActivity>(renderer, mappedInput)); }
 
 void ActivityManager::pushActivity(std::unique_ptr<Activity>&& activity) {
   if (pendingActivity) {
@@ -220,9 +252,22 @@ void ActivityManager::popActivity() {
 
 bool ActivityManager::preventAutoSleep() const { return currentActivity && currentActivity->preventAutoSleep(); }
 
-bool ActivityManager::isReaderActivity() const { return currentActivity && currentActivity->isReaderActivity(); }
+bool ActivityManager::isReaderActivity() const {
+  return std::any_of(stackActivities.begin(), stackActivities.end(),
+                     [](const auto& activity) { return activity->isReaderActivity(); }) ||
+         (currentActivity && currentActivity->isReaderActivity());
+}
+
+bool ActivityManager::handleForcedRefresh() { return currentActivity && currentActivity->handleForcedRefresh(); }
 
 bool ActivityManager::skipLoopDelay() const { return currentActivity && currentActivity->skipLoopDelay(); }
+
+ScreenshotInfo ActivityManager::getScreenshotInfo() const {
+  if (currentActivity) {
+    return currentActivity->getScreenshotInfo();
+  }
+  return {};
+}
 
 void ActivityManager::requestUpdate(bool immediate) {
   if (immediate) {
@@ -241,7 +286,7 @@ void ActivityManager::requestUpdateAndWait() {
   }
 
   // Atomic section to perform checks
-  taskENTER_CRITICAL(nullptr);
+  taskENTER_CRITICAL(&activityManagerSpinlock);
   auto currTaskHandler = xTaskGetCurrentTaskHandle();
   auto mutexHolder = xSemaphoreGetMutexHolder(renderingMutex);
   bool isRenderTask = (currTaskHandler == renderTaskHandle);
@@ -250,7 +295,7 @@ void ActivityManager::requestUpdateAndWait() {
   if (!alreadyWaiting && !isRenderTask && !holdingRenderLock) {
     waitingTaskHandle = currTaskHandler;
   }
-  taskEXIT_CRITICAL(nullptr);
+  taskEXIT_CRITICAL(&activityManagerSpinlock);
 
   // Render task cannot call requestUpdateAndWait() or it will cause a deadlock
   assert(!isRenderTask && "Render task cannot call requestUpdateAndWait()");

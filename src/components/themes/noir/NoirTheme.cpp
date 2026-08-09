@@ -79,15 +79,6 @@ const uint8_t* iconForName(UIIcon icon, int size) {
 }
 }  // namespace
 
-void NoirTheme::drawBatteryRight(const GfxRenderer& renderer, Rect rect, const bool showPercentage) const {
-  if (!showPercentage) return;
-  const uint16_t percentage = powerManager.getBatteryPercentage();
-  const auto percentageText = std::to_string(percentage) + "%";
-  const int textWidth = renderer.getTextWidth(SMALL_FONT_ID, percentageText.c_str());
-  // White text on black header background
-  renderer.drawText(SMALL_FONT_ID, rect.x - textWidth, rect.y, percentageText.c_str(), false);
-}
-
 void NoirTheme::drawHeader(const GfxRenderer& renderer, Rect rect, const char* title, const char* subtitle) const {
   // Fill entire header area with black
   renderer.fillRect(rect.x, rect.y, rect.width, rect.height, true);
@@ -174,7 +165,8 @@ void NoirTheme::drawList(const GfxRenderer& renderer, Rect rect, int itemCount, 
                          const std::function<std::string(int index)>& rowTitle,
                          const std::function<std::string(int index)>& rowSubtitle,
                          const std::function<UIIcon(int index)>& rowIcon,
-                         const std::function<std::string(int index)>& rowValue, bool highlightValue) const {
+                         const std::function<std::string(int index)>& rowValue, bool highlightValue,
+                         const std::function<bool(int index)>& /*rowDimmed*/) const {
   int rowHeight =
       (rowSubtitle != nullptr) ? NoirMetrics::values.listWithSubtitleRowHeight : NoirMetrics::values.listRowHeight;
   int pageItems = rect.height / rowHeight;
@@ -243,7 +235,7 @@ void NoirTheme::drawList(const GfxRenderer& renderer, Rect rect, int itemCount, 
           // Draw white background behind icon so it's visible on black selection
           renderer.fillRect(iconX - 1, itemY + iconY - 1, iconSize + 2, iconSize + 2, false);
         }
-        renderer.drawIcon(iconBitmap, iconX, itemY + iconY, iconSize, iconSize);
+        renderer.drawIcon(iconBitmap, iconX, itemY + iconY, iconSize);
       }
     }
 
@@ -304,7 +296,7 @@ void NoirTheme::drawButtonMenu(GfxRenderer& renderer, Rect rect, int buttonCount
           // White background behind icon so it's visible on black
           renderer.fillRect(textX - 1, textY + 2, mainMenuIconSize + 2, mainMenuIconSize + 2, false);
         }
-        renderer.drawIcon(iconBitmap, textX, textY + 3, mainMenuIconSize, mainMenuIconSize);
+        renderer.drawIcon(iconBitmap, textX, textY + 3, mainMenuIconSize);
         textX += mainMenuIconSize + hPaddingInSelection + 2;
       }
     }

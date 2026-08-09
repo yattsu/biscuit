@@ -281,7 +281,7 @@ void SteganographyActivity::loop() {
           // Launch keyboard to collect secret message
           startActivityForResult(
               std::make_unique<KeyboardEntryActivity>(renderer, mappedInput,
-                                                     "Secret Message", "", MAX_MSG_LEN, false),
+                                                     "Secret Message", "", MAX_MSG_LEN, InputType::Text),
               [this](const ActivityResult& result) {
                 if (!result.isCancelled) {
                   const auto& kb = std::get<KeyboardResult>(result.data);
