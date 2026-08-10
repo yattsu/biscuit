@@ -12,6 +12,7 @@
 #include "components/UITheme.h"
 #include "fontIds.h"
 #include "util/RadioManager.h"
+#include "util/WifiRawFrameBypass.h"
 
 // Deauth frame template (26 bytes)
 static uint8_t deauthFrame[26] = {
@@ -50,6 +51,7 @@ void WifiTestActivity::onEnter() {
 
 void WifiTestActivity::onExit() {
   Activity::onExit();
+  setWifiFrameCheckBypass(false);
   esp_wifi_set_promiscuous(false);
   WiFi.mode(WIFI_OFF);
   RADIO.shutdown();
@@ -122,6 +124,7 @@ void WifiTestActivity::loop() {
     }
 
     if (mappedInput.wasReleased(MappedInputManager::Button::Back)) {
+      setWifiFrameCheckBypass(false);
       esp_wifi_set_promiscuous(false);
       state = SELECT_TARGET;
       requestUpdate();
@@ -158,6 +161,7 @@ void WifiTestActivity::loop() {
       startTime = millis();
       lastSendTime = 0;
       esp_wifi_set_promiscuous(true);
+      setWifiFrameCheckBypass(true);
       state = DEAUTHING;
       requestUpdate();
     }

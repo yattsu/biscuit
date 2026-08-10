@@ -12,6 +12,7 @@
 #include "components/UITheme.h"
 #include "fontIds.h"
 #include "util/RadioManager.h"
+#include "util/WifiRawFrameBypass.h"
 
 // ---------------------------------------------------------------------------
 // Path-safe filename helper — replaces every character that is not
@@ -31,18 +32,6 @@ static void sanitizeFilename(char* out, size_t outLen, const char* input) {
     }
     out[j] = '\0';
     if (j == 0) { strncpy(out, "capture", outLen); out[outLen - 1] = '\0'; }
-}
-
-// Forward-declare the real (wrapped) function so normal WiFi ops still work.
-// --wrap causes all calls to ieee80211_raw_frame_sanity_check to land here;
-// we only bypass the check while FireActivity is actively sending raw frames.
-extern "C" int __real_ieee80211_raw_frame_sanity_check(int32_t arg, int32_t arg2, int32_t arg3);
-
-static volatile bool s_bypassFrameCheck = false;
-
-extern "C" int __wrap_ieee80211_raw_frame_sanity_check(int32_t arg, int32_t arg2, int32_t arg3) {
-    if (s_bypassFrameCheck) return 0;
-    return __real_ieee80211_raw_frame_sanity_check(arg, arg2, arg3);
 }
 
 // Static members
@@ -262,7 +251,7 @@ void FireActivity::startAttack() {
     statusLine[0] = '\0';
 
     // Enable raw frame bypass for WiFi-based operations
-    s_bypassFrameCheck = true;
+    setWifiFrameCheckBypass(true);
 
     // Prepare radio based on attack type
     switch (activeAttack) {
@@ -332,7 +321,7 @@ void FireActivity::startAttack() {
 
 void FireActivity::stopAttack() {
     // Restore normal frame validation
-    s_bypassFrameCheck = false;
+    setWifiFrameCheckBypass(false);
 
     // Stop all radio activity
     esp_wifi_set_promiscuous(false);
